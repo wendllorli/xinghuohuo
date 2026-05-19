@@ -1127,8 +1127,37 @@
           renderWorks([]);
           return;
         }
-        const data = await requestJson("/api/works");
+        const data = await requestJson(`/api/works?ts=${Date.now()}`);
         renderWorks(data.works || []);
+      }
+
+      async function refreshWorksNow() {
+        const previousText = refreshWorksBtn.textContent;
+        refreshWorksBtn.disabled = true;
+        refreshWorksBtn.textContent = "刷新中...";
+        showError("");
+        try {
+          const tasks = [...activeTasks.values()];
+          await Promise.all(tasks.map((task) => checkTaskOnce(task)));
+          await loadWorks();
+        } catch (error) {
+          showError(error.message);
+        } finally {
+          refreshWorksBtn.disabled = false;
+          refreshWorksBtn.textContent = previousText;
+        }
+      }
+
+      async function checkTaskOnce(task) {
+        const payload = await requestJson(`/api/tasks/${encodeURIComponent(task.id)}?ts=${Date.now()}`);
+        const images = payload.images || [];
+        if (images.length > 0) {
+          renderImages(images);
+          activeTasks.delete(task.id);
+          updateTaskControls();
+          await loadMe();
+          updateActiveStatus("生成完成，已保存到作品", "done");
+        }
       }
 
       async function pollTask(task) {
@@ -1300,7 +1329,7 @@
         customSizeFields.classList.toggle("hidden", sizeSelect.value !== "custom");
       });
 
-      refreshWorksBtn.addEventListener("click", loadWorks);
+      refreshWorksBtn.addEventListener("click", refreshWorksNow);
 
       loadMe();
     </script>
