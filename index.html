@@ -99,7 +99,8 @@
       }
 
       .status-pill,
-      .member-pill {
+      .member-pill,
+      .info-pill {
         display: inline-flex;
         align-items: center;
         gap: 8px;
@@ -117,6 +118,49 @@
         display: grid;
         gap: 10px;
         justify-items: end;
+      }
+
+      .profile-card {
+        min-width: min(100%, 420px);
+        border: 1px solid rgba(225, 221, 212, 0.92);
+        border-radius: 8px;
+        background: rgba(255, 253, 248, 0.96);
+        box-shadow: var(--shadow-soft);
+        padding: 18px;
+      }
+
+      .profile-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+
+      .profile-title {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        font-size: 16px;
+        font-weight: 800;
+      }
+
+      .profile-title::before {
+        content: "";
+        width: 8px;
+        height: 22px;
+        border-radius: 999px;
+        background: var(--accent);
+      }
+
+      .profile-summary {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .profile-card .actions {
+        margin-top: 12px;
       }
 
       .dot {
@@ -541,17 +585,19 @@
             会员登录后即可提交图片生成任务。任务会在后台并发查询，生成结果自动保存到你的作品记录。
           </p>
         </div>
-        <div class="top-actions">
-          <div class="status-pill" aria-live="polite">
-            <span id="statusDot" class="dot"></span>
-            <span id="statusText">待登录</span>
-          </div>
-          <div id="memberPill" class="member-pill">未登录</div>
-        </div>
       </header>
 
-      <section id="authPanel" class="panel auth-panel">
-        <h2 class="section-title">账号</h2>
+      <section id="authPanel" class="profile-card">
+        <div class="profile-head">
+          <div class="profile-title">个人信息</div>
+          <button id="logoutBtn" class="ghost hidden" type="button">退出</button>
+        </div>
+        <div class="status-pill hidden" aria-live="polite">
+          <span id="statusDot" class="dot"></span>
+          <span id="statusText">待登录</span>
+        </div>
+        <div id="memberPill" class="member-pill hidden">未登录</div>
+        <div id="profileSummary" class="profile-summary"></div>
         <form id="authForm">
           <div class="row">
             <div class="field">
@@ -573,7 +619,6 @@
           <div class="actions">
             <button id="loginBtn" class="primary" type="submit" data-mode="login">登录</button>
             <button id="registerBtn" class="secondary" type="button">注册</button>
-            <button id="logoutBtn" class="ghost hidden" type="button">退出</button>
           </div>
           <div id="authMessage" class="hint"></div>
         </form>
@@ -725,6 +770,7 @@
       const logoutBtn = document.querySelector("#logoutBtn");
       const authMessage = document.querySelector("#authMessage");
       const memberPill = document.querySelector("#memberPill");
+      const profileSummary = document.querySelector("#profileSummary");
       const form = document.querySelector("#imageForm");
       const submitBtn = document.querySelector("#submitBtn");
       const stopBtn = document.querySelector("#stopBtn");
@@ -777,6 +823,53 @@
         authMessage.textContent = message || "";
       }
 
+      function renderProfileSummary(items) {
+        profileSummary.innerHTML = items
+          .map(
+            (item) => `
+              <span class="info-pill">
+                ${item.dot ? `<span class="dot ${item.tone || ""}"></span>` : ""}
+                ${escapeHtml(item.text)}
+              </span>
+            `,
+          )
+          .join("");
+      }
+
+      function refreshProfileSummary() {
+        if (!currentUser) {
+          renderProfileSummary([
+            { text: "未登录", dot: true },
+            { text: activeTasks.size > 0 ? `${activeTasks.size} 个任务后台生成中` : "暂无后台任务" },
+          ]);
+          return;
+        }
+
+        const dailyLeft =
+          currentUser.dailyQuota == null
+            ? "不限"
+            : Math.max(0, currentUser.dailyQuota - currentUser.usedToday);
+        const totalLeft =
+          currentUser.totalQuota == null
+            ? "不限"
+            : Math.max(0, currentUser.totalQuota - currentUser.usedTotal);
+        renderProfileSummary([
+          { text: currentUser.email },
+          {
+            text: currentUser.isMember ? "会员已开通" : "等待开通",
+            dot: true,
+            tone: currentUser.isMember ? "done" : "",
+          },
+          { text: `今日 ${dailyLeft}` },
+          { text: `总量 ${totalLeft}` },
+          {
+            text: activeTasks.size > 0 ? `${activeTasks.size} 个任务后台生成中` : "暂无后台任务",
+            dot: activeTasks.size > 0,
+            tone: activeTasks.size > 0 ? "running" : "",
+          },
+        ]);
+      }
+
       function writeLog(lines) {
         logNode.textContent = Array.isArray(lines) ? lines.join("\n") : lines;
         logNode.classList.remove("hidden");
@@ -809,15 +902,20 @@
       function updateUserUI() {
         if (!currentUser) {
           memberPill.textContent = "未登录";
+          memberPill.classList.add("hidden");
+          authForm.classList.remove("hidden");
           loginBtn.classList.remove("hidden");
           registerBtn.classList.remove("hidden");
           logoutBtn.classList.add("hidden");
           submitBtn.disabled = true;
           setStatus("待登录", "idle");
+          refreshProfileSummary();
           setAuthMessage("注册后需管理员手动开通会员，开通前不能生成图片。");
           return;
         }
 
+        memberPill.classList.add("hidden");
+        authForm.classList.add("hidden");
         loginBtn.classList.add("hidden");
         registerBtn.classList.add("hidden");
         logoutBtn.classList.remove("hidden");
@@ -836,6 +934,7 @@
         memberPill.textContent = currentUser.isMember
           ? `会员 · 今日 ${dailyLeft} · 总量 ${totalLeft}`
           : "待管理员开通";
+        refreshProfileSummary();
         submitBtn.disabled = !currentUser.isMember;
         setStatus(currentUser.isMember ? "可以生成" : "等待开通", currentUser.isMember ? "done" : "idle");
         setAuthMessage(
@@ -945,9 +1044,11 @@
         if (activeTasks.size > 0) {
           setStatus(`${activeTasks.size} 个任务后台生成中`, "running");
           taskIdNode.textContent = `后台任务：${activeTasks.size} 个`;
+          refreshProfileSummary();
           return;
         }
         setStatus(fallbackText, fallbackTone);
+        refreshProfileSummary();
       }
 
       function renderImages(urls) {
