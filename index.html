@@ -562,6 +562,14 @@
         background: #eee7dc;
       }
 
+      .image-card video {
+        display: block;
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        object-fit: cover;
+        background: #12181e;
+      }
+
       .image-actions,
       .work-meta {
         display: grid;
@@ -814,6 +822,21 @@
             </div>
           </div>
 
+          <div id="videoFields" class="row hidden">
+            <div class="field">
+              <label for="generationType">生成模式</label>
+              <select id="generationType" name="generationType">
+                <option value="TEXT" selected>文生视频</option>
+                <option value="FIRST&LAST">首尾帧</option>
+                <option value="REFERENCE">参考图</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="duration">时长</label>
+              <input id="duration" name="duration" type="number" min="1" max="60" value="8" />
+            </div>
+          </div>
+
           <div class="row">
             <div class="field">
               <label for="quality">质量</label>
@@ -901,14 +924,52 @@
       const referenceFilesInput = document.querySelector("#referenceFiles");
       const referenceFileStatus = document.querySelector("#referenceFileStatus");
       const referencePreview = document.querySelector("#referencePreview");
+      const modelSelect = document.querySelector("#model");
       const sizeSelect = document.querySelector("#size");
       const customSizeFields = document.querySelector("#customSizeFields");
+      const qualitySelect = document.querySelector("#quality");
+      const nInput = document.querySelector("#n");
+      const generationTypeSelect = document.querySelector("#generationType");
+      const videoFields = document.querySelector("#videoFields");
 
       const activeTasks = new Map();
       let currentUser = null;
       let referenceImages = [];
       let uploadedReferenceImages = [];
       let generationMode = "image";
+
+      const imageOptions = {
+        model: [{ value: "gpt-image-2", label: "GPT2" }],
+        size: [
+          "auto",
+          "1024x1024",
+          "1792x1024",
+          "1024x1792",
+          "3840x2160",
+          "2560x1440",
+          "1:1",
+          "3:2",
+          "2:3",
+          "16:9",
+          "9:16",
+          "1:2",
+          "2:1",
+          "4:3",
+          "3:4",
+          "5:4",
+          "4:5",
+          "custom",
+        ],
+        quality: ["auto", "low", "medium", "high"],
+      };
+      const videoOptions = {
+        model: [
+          { value: "veo3.1-fast", label: "VEO3.1 Fast" },
+          { value: "veo3.1-pro", label: "VEO3.1 Pro" },
+        ],
+        size: ["16:9", "9:16"],
+        quality: ["720p", "1080p", "4k"],
+      };
 
       function escapeHtml(value) {
         return String(value)
@@ -923,6 +984,20 @@
         return /^https?:\/\//i.test(url) || /^data:/i.test(url)
           ? url
           : `data:image/png;base64,${url}`;
+      }
+
+      function toMediaSrc(url) {
+        return /^https?:\/\//i.test(url) || /^data:/i.test(url) ? url : toImageSrc(url);
+      }
+
+      function setSelectOptions(select, options) {
+        select.innerHTML = options
+          .map((option) => {
+            const value = typeof option === "string" ? option : option.value;
+            const label = typeof option === "string" ? (option === "custom" ? "自定义尺寸" : option) : option.label;
+            return `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`;
+          })
+          .join("");
       }
 
       function setStatus(text, tone = "idle") {
@@ -1180,11 +1255,21 @@
 
       function updateModeUI() {
         const copy = getModeCopy();
+        const options = generationMode === "video" ? videoOptions : imageOptions;
         modeButtons.forEach((button) => {
           const isActive = button.dataset.generationMode === generationMode;
           button.classList.toggle("is-active", isActive);
           button.setAttribute("aria-selected", String(isActive));
         });
+        setSelectOptions(modelSelect, options.model);
+        setSelectOptions(sizeSelect, options.size);
+        setSelectOptions(qualitySelect, options.quality);
+        sizeSelect.value = generationMode === "video" ? "16:9" : "auto";
+        qualitySelect.value = generationMode === "video" ? "1080p" : "auto";
+        customSizeFields.classList.add("hidden");
+        videoFields.classList.toggle("hidden", generationMode !== "video");
+        nInput.closest(".field").classList.toggle("hidden", generationMode === "video");
+        generationTypeSelect.value = "TEXT";
         submitBtn.textContent = copy.submitText;
         if (!emptyState.classList.contains("hidden")) {
           resultLoader.classList.add("hidden");
@@ -1215,15 +1300,19 @@
         refreshProfileSummary();
       }
 
-      function renderImages(urls) {
+      function renderMedia(urls, mediaType = "image") {
         gallery.innerHTML = urls
           .map((url, index) => {
-            const src = toImageSrc(url);
+            const src = toMediaSrc(url);
+            const label = mediaType === "video" ? `视频 ${index + 1}` : `图片 ${index + 1}`;
+            const preview = mediaType === "video"
+              ? `<video src="${src}" controls preload="metadata"></video>`
+              : `<img src="${src}" alt="${label}" loading="lazy" />`;
             return `
               <article class="image-card">
-                <img src="${src}" alt="生成图片 ${index + 1}" loading="lazy" />
+                ${preview}
                 <div class="image-actions">
-                  <span class="hint">图片 ${index + 1}</span>
+                  <span class="hint">${label}</span>
                   <a href="${src}" target="_blank" rel="noreferrer">预览</a>
                 </div>
               </article>
@@ -1234,19 +1323,27 @@
         emptyState.classList.add("hidden");
       }
 
+      function renderImages(urls) {
+        renderMedia(urls, "image");
+      }
+
       function renderWorks(works) {
         worksList.innerHTML = works
           .map((work) => {
-            const src = toImageSrc(work.url);
+            const mediaType = work.mediaType || "image";
+            const src = toMediaSrc(work.url);
             const prompt = escapeHtml(work.prompt || "未命名作品");
             const time = escapeHtml(work.createdAt || "");
             const size = escapeHtml(work.size || "");
+            const preview = mediaType === "video"
+              ? `<video src="${src}" controls preload="metadata"></video>`
+              : `<img src="${src}" alt="${prompt}" loading="lazy" />`;
             return `
               <article class="image-card">
-                <img src="${src}" alt="${prompt}" loading="lazy" />
+                ${preview}
                 <div class="work-meta">
                   <div class="work-prompt" title="${prompt}">${prompt}</div>
-                  <div class="work-info">${time}${size ? ` · ${size}` : ""}</div>
+                  <div class="work-info">${mediaType === "video" ? "视频" : "图片"}${time ? ` · ${time}` : ""}${size ? ` · ${size}` : ""}</div>
                   <a href="${src}" target="_blank" rel="noreferrer">预览</a>
                 </div>
               </article>
@@ -1284,9 +1381,10 @@
 
       async function checkTaskOnce(task) {
         const payload = await requestJson(`/api/tasks/${encodeURIComponent(task.id)}?ts=${Date.now()}`);
-        const images = payload.images || [];
-        if (images.length > 0) {
-          renderImages(images);
+        const mediaType = payload.mediaType || task.mediaType || "image";
+        const media = mediaType === "video" ? payload.videos || [] : payload.images || [];
+        if (media.length > 0) {
+          renderMedia(media, mediaType);
           activeTasks.delete(task.id);
           updateTaskControls();
           await loadMe();
@@ -1299,10 +1397,11 @@
         updateActiveStatus();
         try {
           const payload = await requestJson(`/api/tasks/${encodeURIComponent(task.id)}`);
-          const images = payload.images || [];
+          const mediaType = payload.mediaType || task.mediaType || "image";
+          const media = mediaType === "video" ? payload.videos || [] : payload.images || [];
 
-          if (images.length > 0) {
-            renderImages(images);
+          if (media.length > 0) {
+            renderMedia(media, mediaType);
             activeTasks.delete(task.id);
             updateTaskControls();
             await loadMe();
@@ -1312,14 +1411,14 @@
           }
 
           if (["failed", "failure", "error", "cancelled", "canceled"].includes(payload.status)) {
-            throw new Error(payload.message || "图片生成失败");
+            throw new Error(payload.message || (mediaType === "video" ? "视频生成失败" : "图片生成失败"));
           }
 
           if (task.pollCount >= MAX_POLLS) {
             activeTasks.delete(task.id);
             updateTaskControls();
             updateActiveStatus("有任务查询超时", "error");
-            showError(`任务 ${task.id} 还没有返回图片，已达到最大查询次数。`);
+            showError(`任务 ${task.id} 还没有返回结果，已达到最大查询次数。`);
             return;
           }
 
@@ -1360,11 +1459,6 @@
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
         showError("");
-        if (generationMode === "video") {
-          setResultLoading(false);
-          showError("视频生成接口文档待接入，当前已先完成界面切换。");
-          return;
-        }
         if (!currentUser?.isMember) {
           showError("请先登录并等待管理员开通会员。");
           return;
@@ -1380,9 +1474,21 @@
           return;
         }
         try {
-          size = resolveSize(formData);
+          size = generationMode === "video" ? String(formData.get("size") || "16:9") : resolveSize(formData);
           referenceImages = await collectReferenceImages();
           renderReferencePreview();
+          if (generationMode === "video") {
+            const generationType = String(formData.get("generationType") || "TEXT");
+            if (generationType === "TEXT" && referenceImages.length > 0) {
+              throw new Error("文生视频模式不需要参考图，请删除参考图或切换生成模式。");
+            }
+            if (generationType !== "TEXT" && referenceImages.length === 0) {
+              throw new Error("首尾帧/参考图模式需要先上传参考图。");
+            }
+            if (generationType === "REFERENCE" && size === "9:16") {
+              throw new Error("REFERENCE 模式暂不支持 9:16。");
+            }
+          }
         } catch (error) {
           showError(error.message);
           return;
@@ -1391,22 +1497,37 @@
         setStatus("创建任务中", "running");
         taskIdNode.textContent = "正在创建任务...";
         setResultLoading(true);
-        const payload = {
-          model,
-          prompt,
-          n,
-          size,
-          quality: formData.get("quality"),
-          image: referenceImages,
-        };
+        const payload =
+          generationMode === "video"
+            ? {
+                model,
+                prompt,
+                aspect_ratio: size,
+                duration: Number(formData.get("duration") || 8),
+                generation_type: formData.get("generationType"),
+                quality: formData.get("quality"),
+                image_urls: referenceImages,
+              }
+            : {
+                model,
+                prompt,
+                n,
+                size,
+                quality: formData.get("quality"),
+                image: referenceImages,
+              };
 
         try {
-          const result = await requestJson("/api/images/generations", {
+          const result = await requestJson(
+            generationMode === "video" ? "/api/videos/generations" : "/api/images/generations",
+            {
             method: "POST",
             body: JSON.stringify(payload),
-          });
+            },
+          );
           const task = {
             id: result.id,
+            mediaType: generationMode === "video" ? "video" : "image",
             pollCount: 0,
             timer: null,
           };

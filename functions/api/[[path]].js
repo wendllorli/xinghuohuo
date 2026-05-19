@@ -26,7 +26,8 @@ export async function onRequest(context) {
     if (request.method === "GET" && path === "works") {
       const user = await requireUser(request, env);
       const works = await env.DB.prepare(
-        `SELECT id, task_id AS taskId, url, prompt, model, size, quality, created_at AS createdAt
+        `SELECT id, task_id AS taskId, url, prompt, model, size, quality,
+          media_type AS mediaType, created_at AS createdAt
          FROM works
          WHERE user_id = ?
          ORDER BY created_at DESC
@@ -44,6 +45,9 @@ export async function onRequest(context) {
     }
     if (request.method === "POST" && path === "images/generations") {
       return await createImageTask(request, env);
+    }
+    if (request.method === "POST" && path === "videos/generations") {
+      return await createVideoTask(request, env);
     }
     if (request.method === "GET" && path.startsWith("tasks/")) {
       const taskId = decodeURIComponent(path.slice("tasks/".length));
@@ -183,8 +187,8 @@ async function createImageTask(request, env) {
   const now = nowIso();
   await env.DB.prepare(
     `INSERT INTO image_tasks (
-      id, user_id, prompt, model, size, quality, n, state, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, 'submitted', ?, ?)`,
+      id, user_id, prompt, model, size, quality, n, state, created_at, updated_at, media_type
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, 'submitted', ?, ?, 'image')`,
   )
     .bind(taskId, user.id, prompt, model, size, quality, n, now, now)
     .run();
@@ -192,6 +196,77 @@ async function createImageTask(request, env) {
   await consumeQuota(env, user.id, n);
 
   return json({ id: taskId });
+}
+
+async function createVideoTask(request, env) {
+  if (!env.DUOMI_API_KEY) throw httpError(500, "DUOMI_API_KEY is not configured");
+  const user = await requireUser(request, env);
+  const membership = await publicUser(env, user.id);
+  if (!membership.isMember) throw httpError(403, "会员未开通，请联系管理员。");
+
+  const body = await readJson(request);
+  const prompt = String(body.prompt || "").trim();
+  const model = validateEnum(String(body.model || "veo3.1-fast"), ["veo3.1-fast", "veo3.1-pro"], "视频模型不正确。");
+  const aspectRatio = validateEnum(String(body.aspect_ratio || "16:9"), ["16:9", "9:16"], "视频比例不正确。");
+  const quality = validateEnum(String(body.quality || "1080p"), ["720p", "1080p", "4k"], "视频清晰度不正确。");
+  const generationType = validateEnum(
+    String(body.generation_type || "TEXT"),
+    ["TEXT", "FIRST&LAST", "REFERENCE"],
+    "视频生成模式不正确。",
+  );
+  const duration = clampInt(body.duration || 8, 1, 60);
+  const imageUrls = Array.isArray(body.image_urls) ? body.image_urls.filter(Boolean) : [];
+  if (!prompt) throw httpError(400, "请填写提示词。");
+  if (generationType === "TEXT" && imageUrls.length > 0) {
+    throw httpError(400, "文生视频模式不需要参考图。");
+  }
+  if (generationType !== "TEXT" && imageUrls.length === 0) {
+    throw httpError(400, "请上传参考图，或将生成模式改为文生视频。");
+  }
+  if (generationType === "REFERENCE" && aspectRatio === "9:16") {
+    throw httpError(400, "REFERENCE 模式暂不支持 9:16。");
+  }
+
+  await ensureQuota(env, membership, 1);
+
+  const upstreamPayload = {
+    model,
+    prompt,
+    aspect_ratio: aspectRatio,
+    duration,
+    generation_type: generationType,
+    quality,
+  };
+  if (imageUrls.length > 0) upstreamPayload.image_urls = imageUrls;
+
+  const upstream = await fetch(`${API_BASE}/videos/generations?async=true`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.DUOMI_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(upstreamPayload),
+  });
+  const data = await parseJson(upstream);
+  if (!upstream.ok) {
+    throw httpError(upstream.status, data?.error?.message || data?.message || "视频任务创建失败。");
+  }
+
+  const taskId = data?.id || data?.data?.id || data?.task_id || data?.data?.task_id;
+  if (!taskId) throw httpError(502, "上游接口没有返回任务 ID。");
+
+  const now = nowIso();
+  await env.DB.prepare(
+    `INSERT INTO image_tasks (
+      id, user_id, prompt, model, size, quality, n, state, created_at, updated_at, media_type
+    ) VALUES (?, ?, ?, ?, ?, ?, 1, 'submitted', ?, ?, 'video')`,
+  )
+    .bind(taskId, user.id, prompt, model, aspectRatio, quality, now, now)
+    .run();
+  await recordReferenceImages(env, request, user.id, taskId, imageUrls, now);
+  await consumeQuota(env, user.id, 1);
+
+  return json({ id: taskId, mediaType: "video" });
 }
 
 async function uploadReferenceImage(request, env) {
@@ -254,17 +329,19 @@ async function getTask(request, env, taskId) {
 
   const status = normalizeStatus(data);
   const images = normalizeImages(data);
+  const videos = normalizeVideos(data);
+  const assets = task.media_type === "video" ? videos : images;
   await env.DB.prepare("UPDATE image_tasks SET state = ?, updated_at = ? WHERE id = ?")
     .bind(status || "running", nowIso(), taskId)
     .run();
 
-  if (images.length > 0 && !task.saved_at) {
+  if (assets.length > 0 && !task.saved_at) {
     const now = nowIso();
-    for (const [index, url] of images.entries()) {
+    for (const [index, url] of assets.entries()) {
       await env.DB.prepare(
         `INSERT OR IGNORE INTO works (
-          id, user_id, task_id, url, prompt, model, size, quality, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          id, user_id, task_id, url, prompt, model, size, quality, created_at, media_type
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
         .bind(
           `${taskId}-${index}`,
@@ -276,6 +353,7 @@ async function getTask(request, env, taskId) {
           task.size,
           task.quality,
           now,
+          task.media_type || "image",
         )
         .run();
     }
@@ -285,7 +363,7 @@ async function getTask(request, env, taskId) {
     await cleanupTaskReferenceImages(env, taskId);
   }
 
-  return json({ id: taskId, status, images });
+  return json({ id: taskId, status, images, videos, mediaType: task.media_type || "image" });
 }
 
 async function recordReferenceImages(env, request, userId, taskId, images, now) {
@@ -500,6 +578,11 @@ function validateSize(size) {
   return size;
 }
 
+function validateEnum(value, allowed, message) {
+  if (allowed.includes(value)) return value;
+  throw httpError(400, message);
+}
+
 function normalizeStatus(payload) {
   return String(
     payload?.status ||
@@ -528,6 +611,26 @@ function normalizeImages(payload) {
     .map((item) => {
       if (typeof item === "string") return item;
       return item?.url || item?.image_url || item?.b64_json || "";
+    })
+    .filter(Boolean);
+}
+
+function normalizeVideos(payload) {
+  const candidates = [
+    payload?.data?.videos,
+    payload?.data?.video,
+    payload?.videos,
+    payload?.video,
+    payload?.data?.output,
+    payload?.output,
+    payload?.data?.result,
+    payload?.result,
+  ];
+  return candidates
+    .flatMap((item) => (Array.isArray(item) ? item : item ? [item] : []))
+    .map((item) => {
+      if (typeof item === "string") return item;
+      return item?.url || item?.video_url || item?.file_url || item?.video?.url || "";
     })
     .filter(Boolean);
 }
