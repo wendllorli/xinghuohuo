@@ -487,6 +487,19 @@
         padding: 0 14px;
       }
 
+      .readonly-field {
+        display: flex;
+        align-items: center;
+        min-height: 48px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: linear-gradient(135deg, rgba(229, 245, 239, 0.62), rgba(255, 255, 255, 0.92));
+        color: var(--ink);
+        font-weight: 750;
+        padding: 0 14px;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+      }
+
       textarea {
         min-height: 154px;
         resize: vertical;
@@ -1079,6 +1092,10 @@
                 <option value="FIRST&LAST">首尾帧</option>
                 <option value="REFERENCE">参考图</option>
               </select>
+            </div>
+            <div class="field">
+              <label>时长</label>
+              <div class="readonly-field">8S</div>
             </div>
           </div>
 
