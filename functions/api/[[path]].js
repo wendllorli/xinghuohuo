@@ -11,10 +11,10 @@ export async function onRequest(context) {
     if (!env.DB) return json({ message: "D1 database is not configured" }, 500);
 
     if (request.method === "POST" && path === "auth/register") {
-      return register(request, env);
+      return await register(request, env);
     }
     if (request.method === "POST" && path === "auth/login") {
-      return login(request, env);
+      return await login(request, env);
     }
     if (request.method === "POST" && path === "auth/logout") {
       return logout();
@@ -37,20 +37,20 @@ export async function onRequest(context) {
       return json({ works: works.results || [] });
     }
     if (request.method === "POST" && path === "images/generations") {
-      return createImageTask(request, env);
+      return await createImageTask(request, env);
     }
     if (request.method === "GET" && path.startsWith("tasks/")) {
       const taskId = decodeURIComponent(path.slice("tasks/".length));
-      return getTask(request, env, taskId);
+      return await getTask(request, env, taskId);
     }
     if (path.startsWith("admin/") && !isAdminRequest(request, env)) {
       return json({ message: "管理员令牌不正确。" }, 401);
     }
     if (request.method === "GET" && path === "admin/users") {
-      return listUsers(request, env);
+      return await listUsers(request, env);
     }
     if (request.method === "POST" && path === "admin/membership") {
-      return updateMembership(request, env);
+      return await updateMembership(request, env);
     }
 
     return json({ message: "API not found" }, 404);
