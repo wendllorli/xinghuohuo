@@ -1,0 +1,8 @@
+name = "xinghuohuo"
+pages_build_output_dir = "."
+compatibility_date = "2026-05-19"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "xinghuohuo-db"
+database_id = "d79d77d7-1943-47b6-acff-2a2ab778bb5b"

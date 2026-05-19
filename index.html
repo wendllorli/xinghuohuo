@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AI 图片生成</title>
+    <title>星火 AI 图片生成</title>
     <style>
       :root {
         color-scheme: light;
@@ -17,7 +17,6 @@
         --accent-strong: #084e47;
         --accent-soft: #e1f2ed;
         --warm: #b7642e;
-        --warm-soft: #fff0df;
         --danger: #b42318;
         --warning: #a15c07;
         --success: #16704b;
@@ -90,17 +89,17 @@
         font-size: clamp(30px, 4vw, 48px);
         line-height: 1.05;
         letter-spacing: 0;
-        color: #11171d;
       }
 
       .subtitle {
-        max-width: 710px;
+        max-width: 720px;
         margin: 12px 0 0;
         color: var(--muted);
         line-height: 1.75;
       }
 
-      .status-pill {
+      .status-pill,
+      .member-pill {
         display: inline-flex;
         align-items: center;
         gap: 8px;
@@ -112,6 +111,12 @@
         color: var(--muted);
         white-space: nowrap;
         box-shadow: 0 8px 20px rgba(38, 44, 39, 0.06);
+      }
+
+      .top-actions {
+        display: grid;
+        gap: 10px;
+        justify-items: end;
       }
 
       .dot {
@@ -160,24 +165,22 @@
         overflow: hidden;
       }
 
+      .auth-panel {
+        margin-bottom: 22px;
+        padding: 20px;
+      }
+
       .section-title {
+        display: flex;
+        align-items: center;
+        gap: 9px;
         margin: 0 0 14px;
         font-size: 16px;
         font-weight: 750;
         color: #12181e;
       }
 
-      .form-panel > .section-title,
-      .works-head .section-title,
-      .result-head .section-title {
-        display: flex;
-        align-items: center;
-        gap: 9px;
-      }
-
-      .form-panel > .section-title::before,
-      .works-head .section-title::before,
-      .result-head .section-title::before {
+      .section-title::before {
         content: "";
         width: 8px;
         height: 22px;
@@ -192,9 +195,9 @@
       }
 
       label {
+        color: #343941;
         font-size: 13px;
         font-weight: 700;
-        color: #343941;
       }
 
       .hint {
@@ -255,8 +258,46 @@
         margin-top: 20px;
       }
 
-      .actions .primary {
-        width: 100%;
+      button {
+        min-height: 44px;
+        border: 0;
+        border-radius: 8px;
+        padding: 0 16px;
+        cursor: pointer;
+        font-weight: 750;
+        transition:
+          transform 0.16s ease,
+          background 0.16s ease,
+          opacity 0.16s ease;
+      }
+
+      button:active {
+        transform: translateY(1px);
+      }
+
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.58;
+      }
+
+      .primary {
+        flex: 1;
+        background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+        color: #fff;
+        box-shadow: 0 12px 24px rgba(14, 117, 105, 0.24);
+      }
+
+      .secondary {
+        border: 1px solid rgba(14, 117, 105, 0.12);
+        background: var(--accent-soft);
+        color: var(--accent-strong);
+      }
+
+      .ghost {
+        min-height: 34px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.7);
+        color: var(--muted);
       }
 
       .reference-tools {
@@ -310,50 +351,8 @@
         gap: 8px;
       }
 
-      .compact-field {
-        margin-bottom: 10px;
-      }
-
-      button {
-        min-height: 44px;
-        border: 0;
-        border-radius: 8px;
-        padding: 0 16px;
-        cursor: pointer;
-        font-weight: 750;
-        transition:
-          transform 0.16s ease,
-          background 0.16s ease,
-          opacity 0.16s ease;
-      }
-
-      button:active {
-        transform: translateY(1px);
-      }
-
-      button:disabled {
-        cursor: not-allowed;
-        opacity: 0.58;
-      }
-
-      .primary {
-        flex: 1;
-        background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-        color: #fff;
-        box-shadow: 0 12px 24px rgba(14, 117, 105, 0.24);
-      }
-
-      .primary:hover:not(:disabled) {
-        background: linear-gradient(135deg, #13877a, var(--accent-strong));
-      }
-
-      .secondary {
-        border: 1px solid rgba(14, 117, 105, 0.12);
-        background: var(--accent-soft);
-        color: var(--accent-strong);
-      }
-
-      .result-head {
+      .result-head,
+      .works-head {
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -373,14 +372,16 @@
         white-space: nowrap;
       }
 
-      .result-body {
+      .result-body,
+      .works-body {
         padding: 20px;
       }
 
-      .empty {
+      .empty,
+      .empty-works {
         display: grid;
         place-items: center;
-        min-height: 540px;
+        min-height: 300px;
         border: 1px dashed rgba(14, 117, 105, 0.26);
         border-radius: 8px;
         background:
@@ -388,8 +389,8 @@
           linear-gradient(-45deg, rgba(183, 100, 46, 0.045) 25%, transparent 25%),
           var(--panel);
         background-size: 28px 28px;
-        text-align: center;
         color: var(--muted);
+        text-align: center;
         padding: 28px;
       }
 
@@ -400,9 +401,10 @@
         font-size: 18px;
       }
 
-      .gallery {
+      .gallery,
+      .works-list {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
         gap: 14px;
       }
 
@@ -430,12 +432,12 @@
         background: #eee7dc;
       }
 
-      .image-actions {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 10px;
+      .image-actions,
+      .work-meta {
+        display: grid;
+        gap: 7px;
         padding: 10px;
+        border-top: 1px solid var(--line);
       }
 
       .image-actions a {
@@ -445,8 +447,21 @@
         text-decoration: none;
       }
 
-      .image-actions a:hover {
-        color: var(--warm);
+      .work-prompt {
+        display: -webkit-box;
+        min-height: 40px;
+        overflow: hidden;
+        color: var(--ink);
+        font-size: 13px;
+        line-height: 1.5;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+      }
+
+      .work-info {
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.45;
       }
 
       .log {
@@ -474,58 +489,6 @@
         line-height: 1.55;
       }
 
-      .works-panel {
-        margin-top: 22px;
-        padding: 20px;
-      }
-
-      .works-head {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 14px;
-        margin-bottom: 14px;
-      }
-
-      .works-list {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-        gap: 14px;
-      }
-
-      .work-meta {
-        display: grid;
-        gap: 5px;
-        padding: 10px;
-        border-top: 1px solid var(--line);
-      }
-
-      .work-prompt {
-        display: -webkit-box;
-        min-height: 40px;
-        overflow: hidden;
-        color: var(--ink);
-        font-size: 13px;
-        line-height: 1.5;
-        -webkit-box-orient: vertical;
-        -webkit-line-clamp: 2;
-      }
-
-      .work-info {
-        color: var(--muted);
-        font-size: 12px;
-        line-height: 1.45;
-      }
-
-      .empty-works {
-        padding: 20px;
-        border: 1px dashed rgba(14, 117, 105, 0.24);
-        border-radius: 8px;
-        background: rgba(255, 255, 255, 0.55);
-        color: var(--muted);
-        text-align: center;
-      }
-
       .hidden {
         display: none !important;
       }
@@ -534,6 +497,10 @@
         .topbar {
           align-items: start;
           flex-direction: column;
+        }
+
+        .top-actions {
+          justify-items: start;
         }
 
         .grid {
@@ -557,7 +524,8 @@
           flex-direction: column;
         }
 
-        .result-head {
+        .result-head,
+        .works-head {
           align-items: start;
           flex-direction: column;
         }
@@ -568,33 +536,52 @@
     <main class="shell">
       <header class="topbar">
         <div>
-          <h1>AI 图片生成</h1>
+          <h1>星火 AI 图片生成</h1>
           <p class="subtitle">
-            输入提示词后创建异步图片任务，页面会自动查询任务状态并展示生成结果。
+            会员登录后即可提交图片生成任务。任务会在后台并发查询，生成结果自动保存到你的作品记录。
           </p>
         </div>
-        <div class="status-pill" aria-live="polite">
-          <span id="statusDot" class="dot"></span>
-          <span id="statusText">待开始</span>
+        <div class="top-actions">
+          <div class="status-pill" aria-live="polite">
+            <span id="statusDot" class="dot"></span>
+            <span id="statusText">待登录</span>
+          </div>
+          <div id="memberPill" class="member-pill">未登录</div>
         </div>
       </header>
+
+      <section id="authPanel" class="panel auth-panel">
+        <h2 class="section-title">账号</h2>
+        <form id="authForm">
+          <div class="row">
+            <div class="field">
+              <label for="email">邮箱</label>
+              <input id="email" name="email" type="email" autocomplete="email" required />
+            </div>
+            <div class="field">
+              <label for="password">密码</label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                autocomplete="current-password"
+                minlength="8"
+                required
+              />
+            </div>
+          </div>
+          <div class="actions">
+            <button id="loginBtn" class="primary" type="submit" data-mode="login">登录</button>
+            <button id="registerBtn" class="secondary" type="button">注册</button>
+            <button id="logoutBtn" class="ghost hidden" type="button">退出</button>
+          </div>
+          <div id="authMessage" class="hint"></div>
+        </form>
+      </section>
 
       <section class="grid">
         <form id="imageForm" class="panel form-panel">
           <h2 class="section-title">生成参数</h2>
-
-          <div class="field">
-            <label for="apiKey">API Key</label>
-            <input
-              id="apiKey"
-              name="apiKey"
-              type="password"
-              autocomplete="off"
-              placeholder="sk-..."
-              required
-            />
-            <div class="hint">密钥仅保存在当前浏览器 localStorage 中。</div>
-          </div>
 
           <div class="field">
             <label for="prompt">提示词</label>
@@ -623,10 +610,10 @@
               />
               <div id="referencePreview" class="reference-preview hidden"></div>
             </div>
-            <div class="hint">接口字段为 image 数组，可混合使用图片 URL 和本地图片。</div>
+            <div class="hint">可选，提交时会作为 image 数组传给后端。</div>
           </div>
 
-          <div class="row compact-field">
+          <div class="row">
             <div class="field">
               <label for="model">模型</label>
               <input id="model" name="model" value="gpt-image-2" required />
@@ -710,7 +697,7 @@
             <div id="emptyState" class="empty">
               <div>
                 <strong>等待第一张图</strong>
-                <span>提交后会在这里显示任务状态和图片链接。</span>
+                <span>登录并提交后，生成结果会显示在这里并保存到作品。</span>
               </div>
             </div>
             <div id="gallery" class="gallery hidden"></div>
@@ -719,26 +706,31 @@
         </section>
       </section>
 
-      <section class="panel works-panel" aria-live="polite">
+      <section class="panel" style="margin-top: 22px" aria-live="polite">
         <div class="works-head">
           <h2 class="section-title" style="margin: 0">作品</h2>
-          <button id="clearWorksBtn" class="secondary" type="button">清空作品</button>
+          <button id="refreshWorksBtn" class="secondary" type="button">刷新作品</button>
         </div>
-        <div id="worksList" class="works-list"></div>
-        <div id="emptyWorks" class="empty-works">生成成功的图片会自动保存到这里。</div>
+        <div class="works-body">
+          <div id="worksList" class="works-list"></div>
+          <div id="emptyWorks" class="empty-works">你的生成作品会保存在这里。</div>
+        </div>
       </section>
     </main>
 
     <script>
-      const API_BASE = "https://duomiapi.com/v1";
       const POLL_INTERVAL_MS = 30000;
       const MAX_POLLS = 120;
-      const STORAGE_KEY = "duomi_image_api_key";
-      const HISTORY_KEY = "duomi_image_works";
-      const MAX_HISTORY_ITEMS = 50;
 
+      const authForm = document.querySelector("#authForm");
+      const emailInput = document.querySelector("#email");
+      const passwordInput = document.querySelector("#password");
+      const loginBtn = document.querySelector("#loginBtn");
+      const registerBtn = document.querySelector("#registerBtn");
+      const logoutBtn = document.querySelector("#logoutBtn");
+      const authMessage = document.querySelector("#authMessage");
+      const memberPill = document.querySelector("#memberPill");
       const form = document.querySelector("#imageForm");
-      const apiKeyInput = document.querySelector("#apiKey");
       const submitBtn = document.querySelector("#submitBtn");
       const stopBtn = document.querySelector("#stopBtn");
       const errorBox = document.querySelector("#errorBox");
@@ -750,20 +742,17 @@
       const logNode = document.querySelector("#log");
       const worksList = document.querySelector("#worksList");
       const emptyWorks = document.querySelector("#emptyWorks");
-      const clearWorksBtn = document.querySelector("#clearWorksBtn");
+      const refreshWorksBtn = document.querySelector("#refreshWorksBtn");
       const referenceUrlsInput = document.querySelector("#referenceUrls");
       const referenceFilesInput = document.querySelector("#referenceFiles");
       const referencePreview = document.querySelector("#referencePreview");
       const sizeSelect = document.querySelector("#size");
       const customSizeFields = document.querySelector("#customSizeFields");
-      const customWidthInput = document.querySelector("#customWidth");
-      const customHeightInput = document.querySelector("#customHeight");
 
       const activeTasks = new Map();
+      let currentUser = null;
       let referenceImages = [];
       let referenceFiles = [];
-
-      apiKeyInput.value = localStorage.getItem(STORAGE_KEY) || "";
 
       function escapeHtml(value) {
         return String(value)
@@ -775,18 +764,9 @@
       }
 
       function toImageSrc(url) {
-        return /^https?:\/\//i.test(url) ? url : `data:image/png;base64,${url}`;
-      }
-
-      function parseReferenceUrls() {
-        return referenceUrlsInput.value
-          .split(/\r?\n/)
-          .map((item) => item.trim())
-          .filter(Boolean);
-      }
-
-      function syncReferenceUrls(urls) {
-        referenceUrlsInput.value = urls.join("\n");
+        return /^https?:\/\//i.test(url) || /^data:/i.test(url)
+          ? url
+          : `data:image/png;base64,${url}`;
       }
 
       function setStatus(text, tone = "idle") {
@@ -799,74 +779,113 @@
         errorBox.classList.toggle("hidden", !message);
       }
 
+      function setAuthMessage(message) {
+        authMessage.textContent = message || "";
+      }
+
       function writeLog(lines) {
         logNode.textContent = Array.isArray(lines) ? lines.join("\n") : lines;
         logNode.classList.remove("hidden");
       }
 
-      function updateTaskControls() {
-        submitBtn.disabled = false;
-        stopBtn.disabled = activeTasks.size === 0;
+      async function requestJson(url, options = {}) {
+        const response = await fetch(url, {
+          credentials: "include",
+          ...options,
+          headers: {
+            ...(options.body ? { "Content-Type": "application/json" } : {}),
+            ...(options.headers || {}),
+          },
+        });
+        const text = await response.text();
+        let data = {};
+        try {
+          data = text ? JSON.parse(text) : {};
+        } catch {
+          data = { raw: text };
+        }
+        if (!response.ok) {
+          throw new Error(data?.message || data?.error || data?.raw || `请求失败：HTTP ${response.status}`);
+        }
+        return data;
       }
 
-      function updateActiveStatus(fallbackText = "待开始", fallbackTone = "idle") {
-        if (activeTasks.size > 0) {
-          setStatus(`${activeTasks.size} 个任务后台生成中`, "running");
-          taskIdNode.textContent = `后台任务：${activeTasks.size} 个`;
+      function updateUserUI() {
+        if (!currentUser) {
+          memberPill.textContent = "未登录";
+          loginBtn.classList.remove("hidden");
+          registerBtn.classList.remove("hidden");
+          logoutBtn.classList.add("hidden");
+          submitBtn.disabled = true;
+          setStatus("待登录", "idle");
+          setAuthMessage("注册后需管理员手动开通会员，开通前不能生成图片。");
           return;
         }
-        setStatus(fallbackText, fallbackTone);
+
+        loginBtn.classList.add("hidden");
+        registerBtn.classList.add("hidden");
+        logoutBtn.classList.remove("hidden");
+        emailInput.value = currentUser.email;
+        passwordInput.value = "";
+
+        const dailyLeft =
+          currentUser.dailyQuota == null
+            ? "不限"
+            : Math.max(0, currentUser.dailyQuota - currentUser.usedToday);
+        const totalLeft =
+          currentUser.totalQuota == null
+            ? "不限"
+            : Math.max(0, currentUser.totalQuota - currentUser.usedTotal);
+
+        memberPill.textContent = currentUser.isMember
+          ? `会员 · 今日 ${dailyLeft} · 总量 ${totalLeft}`
+          : "待管理员开通";
+        submitBtn.disabled = !currentUser.isMember;
+        setStatus(currentUser.isMember ? "可以生成" : "等待开通", currentUser.isMember ? "done" : "idle");
+        setAuthMessage(
+          currentUser.isMember
+            ? "会员已开通，可以提交生成任务。"
+            : "账号已注册，请联系管理员开通会员和次数。",
+        );
       }
 
-      function stopPolling(message = "已停止查询") {
-        activeTasks.forEach((task) => {
-          if (task.timer) {
-            clearTimeout(task.timer);
-          }
-        });
-        activeTasks.clear();
-        updateTaskControls();
-        if (message) {
-          setStatus(message, "idle");
-          taskIdNode.textContent = "暂无任务";
+      async function loadMe() {
+        try {
+          const data = await requestJson("/api/me");
+          currentUser = data.user;
+        } catch {
+          currentUser = null;
         }
+        updateUserUI();
+        await loadWorks();
       }
 
-      function normalizeTaskId(payload) {
-        return payload?.id || payload?.data?.id || payload?.task_id || payload?.data?.task_id;
+      async function auth(mode) {
+        setAuthMessage("");
+        const email = emailInput.value.trim();
+        const password = passwordInput.value;
+        if (!email || !password) {
+          setAuthMessage("请输入邮箱和密码。");
+          return;
+        }
+        const data = await requestJson(`/api/auth/${mode}`, {
+          method: "POST",
+          body: JSON.stringify({ email, password }),
+        });
+        currentUser = data.user;
+        updateUserUI();
+        await loadWorks();
       }
 
-      function normalizeStatus(payload) {
-        const raw =
-          payload?.status ||
-          payload?.state ||
-          payload?.data?.status ||
-          payload?.data?.state ||
-          payload?.task?.status ||
-          payload?.task?.state ||
-          payload?.data?.task?.status ||
-          payload?.data?.task?.state ||
-          "";
-        return String(raw).toLowerCase();
-      }
-
-      function normalizeImages(payload) {
-        const candidates = [
-          payload?.data?.images,
-          payload?.images,
-          payload?.data?.output,
-          payload?.output,
-          payload?.data?.result,
-          payload?.result,
-        ];
-
-        return candidates
-          .flatMap((item) => (Array.isArray(item) ? item : item ? [item] : []))
-          .map((item) => {
-            if (typeof item === "string") return item;
-            return item?.url || item?.image_url || item?.b64_json || "";
-          })
+      function parseReferenceUrls() {
+        return referenceUrlsInput.value
+          .split(/\r?\n/)
+          .map((item) => item.trim())
           .filter(Boolean);
+      }
+
+      function syncReferenceUrls(urls) {
+        referenceUrlsInput.value = urls.join("\n");
       }
 
       function fileToDataUrl(file) {
@@ -881,7 +900,6 @@
       async function collectReferenceImages() {
         const urlImages = parseReferenceUrls();
         const fileImages = await Promise.all(referenceFiles.map(fileToDataUrl));
-
         return [...urlImages, ...fileImages];
       }
 
@@ -912,14 +930,11 @@
 
       function resolveSize(formData) {
         const selectedSize = String(formData.get("size") || "auto");
-        if (selectedSize !== "custom") {
-          return selectedSize;
-        }
+        if (selectedSize !== "custom") return selectedSize;
 
         const width = Number(formData.get("customWidth"));
         const height = Number(formData.get("customHeight"));
         const pixels = width * height;
-
         if (!Number.isInteger(width) || !Number.isInteger(height)) {
           throw new Error("请输入有效的自定义宽度和高度。");
         }
@@ -932,87 +947,20 @@
         if (pixels < 655360 || pixels > 8294400) {
           throw new Error("自定义尺寸像素预算必须在 655,360 到 8,294,400 之间。");
         }
-
         return `${width}x${height}`;
       }
 
-      function loadWorks() {
-        try {
-          const items = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
-          return Array.isArray(items) ? items : [];
-        } catch {
-          return [];
+      function updateTaskControls() {
+        stopBtn.disabled = activeTasks.size === 0;
+      }
+
+      function updateActiveStatus(fallbackText = "可以生成", fallbackTone = "done") {
+        if (activeTasks.size > 0) {
+          setStatus(`${activeTasks.size} 个任务后台生成中`, "running");
+          taskIdNode.textContent = `后台任务：${activeTasks.size} 个`;
+          return;
         }
-      }
-
-      function saveWorks(items) {
-        localStorage.setItem(HISTORY_KEY, JSON.stringify(items.slice(0, MAX_HISTORY_ITEMS)));
-      }
-
-      function renderWorks() {
-        const works = loadWorks();
-        worksList.innerHTML = works
-          .map((work) => {
-            const src = toImageSrc(work.url);
-            const prompt = escapeHtml(work.prompt || "未命名作品");
-            const time = escapeHtml(work.createdAt || "");
-            const size = escapeHtml(work.size || "");
-            return `
-              <article class="image-card">
-                <img src="${src}" alt="${prompt}" loading="lazy" />
-                <div class="work-meta">
-                  <div class="work-prompt" title="${prompt}">${prompt}</div>
-                  <div class="work-info">${time}${size ? ` · ${size}` : ""}</div>
-                  <div class="image-actions" style="padding: 0">
-                    <span class="hint">${escapeHtml(work.model || "")}</span>
-                    <a href="${src}" target="_blank" rel="noreferrer">打开原图</a>
-                  </div>
-                </div>
-              </article>
-            `;
-          })
-          .join("");
-        emptyWorks.classList.toggle("hidden", works.length > 0);
-        clearWorksBtn.disabled = works.length === 0;
-      }
-
-      function addWorks(urls, task) {
-        const createdAt = new Date().toLocaleString("zh-CN", { hour12: false });
-        const newWorks = urls.map((url, index) => ({
-          id: `${task.id}-${index}-${Date.now()}`,
-          url,
-          taskId: task.id,
-          createdAt,
-          prompt: task.request.prompt,
-          model: task.request.model,
-          size: task.request.size,
-          quality: task.request.quality,
-        }));
-        saveWorks([...newWorks, ...loadWorks()]);
-        renderWorks();
-      }
-
-      async function requestJson(url, options = {}) {
-        const response = await fetch(url, options);
-        const text = await response.text();
-        let data = null;
-
-        try {
-          data = text ? JSON.parse(text) : {};
-        } catch {
-          data = { raw: text };
-        }
-
-        if (!response.ok) {
-          const message =
-            data?.error?.message ||
-            data?.message ||
-            data?.raw ||
-            `请求失败：HTTP ${response.status}`;
-          throw new Error(message);
-        }
-
-        return data;
+        setStatus(fallbackText, fallbackTone);
       }
 
       function renderImages(urls) {
@@ -1034,37 +982,62 @@
         emptyState.classList.add("hidden");
       }
 
+      function renderWorks(works) {
+        worksList.innerHTML = works
+          .map((work) => {
+            const src = toImageSrc(work.url);
+            const prompt = escapeHtml(work.prompt || "未命名作品");
+            const time = escapeHtml(work.createdAt || "");
+            const size = escapeHtml(work.size || "");
+            return `
+              <article class="image-card">
+                <img src="${src}" alt="${prompt}" loading="lazy" />
+                <div class="work-meta">
+                  <div class="work-prompt" title="${prompt}">${prompt}</div>
+                  <div class="work-info">${time}${size ? ` · ${size}` : ""}</div>
+                  <a href="${src}" target="_blank" rel="noreferrer">打开原图</a>
+                </div>
+              </article>
+            `;
+          })
+          .join("");
+        emptyWorks.classList.toggle("hidden", works.length > 0);
+      }
+
+      async function loadWorks() {
+        if (!currentUser) {
+          renderWorks([]);
+          return;
+        }
+        const data = await requestJson("/api/works");
+        renderWorks(data.works || []);
+      }
+
       async function pollTask(task) {
         task.pollCount += 1;
         updateActiveStatus();
-
         try {
-          const payload = await requestJson(`${API_BASE}/tasks/${task.id}`, {
-            headers: {
-              Authorization: `Bearer ${task.apiKey}`,
-            },
-          });
-
-          const status = normalizeStatus(payload);
-          const images = normalizeImages(payload);
+          const payload = await requestJson(`/api/tasks/${encodeURIComponent(task.id)}`);
+          const images = payload.images || [];
           writeLog([
             `任务 ID: ${task.id}`,
-            `状态: ${status || "未知"}`,
+            `状态: ${payload.status || "未知"}`,
             `图片数量: ${images.length}`,
             `后台任务: ${activeTasks.size}`,
           ]);
 
           if (images.length > 0) {
             renderImages(images);
-            addWorks(images, task);
             activeTasks.delete(task.id);
             updateTaskControls();
+            await loadMe();
+            await loadWorks();
             updateActiveStatus("生成完成，已保存到作品", "done");
             return;
           }
 
-          if (["failed", "failure", "error", "cancelled", "canceled"].includes(status)) {
-            throw new Error(payload?.error?.message || payload?.message || "图片生成失败");
+          if (["failed", "failure", "error", "cancelled", "canceled"].includes(payload.status)) {
+            throw new Error(payload.message || "图片生成失败");
           }
 
           if (task.pollCount >= MAX_POLLS) {
@@ -1075,10 +1048,7 @@
             return;
           }
 
-          task.timer = setTimeout(
-            () => pollTask(task),
-            POLL_INTERVAL_MS,
-          );
+          task.timer = setTimeout(() => pollTask(task), POLL_INTERVAL_MS);
         } catch (error) {
           activeTasks.delete(task.id);
           updateTaskControls();
@@ -1087,30 +1057,50 @@
         }
       }
 
+      authForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        try {
+          await auth("login");
+        } catch (error) {
+          setAuthMessage(error.message);
+        }
+      });
+
+      registerBtn.addEventListener("click", async () => {
+        try {
+          await auth("register");
+        } catch (error) {
+          setAuthMessage(error.message);
+        }
+      });
+
+      logoutBtn.addEventListener("click", async () => {
+        await requestJson("/api/auth/logout", { method: "POST" });
+        currentUser = null;
+        activeTasks.clear();
+        renderWorks([]);
+        updateUserUI();
+      });
+
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
         showError("");
+        if (!currentUser?.isMember) {
+          showError("请先登录并等待管理员开通会员。");
+          return;
+        }
 
         const formData = new FormData(form);
-        const apiKey = String(formData.get("apiKey") || "").trim();
         const prompt = String(formData.get("prompt") || "").trim();
         const model = String(formData.get("model") || "").trim();
         const n = Number(formData.get("n") || 1);
         let size = "auto";
-        if (!apiKey || !prompt || !model) {
-          showError("请填写 API Key、提示词和模型。");
+        if (!prompt || !model) {
+          showError("请填写提示词和模型。");
           return;
         }
-
         try {
           size = resolveSize(formData);
-        } catch (error) {
-          showError(error.message);
-          return;
-        }
-
-        localStorage.setItem(STORAGE_KEY, apiKey);
-        try {
           referenceImages = await collectReferenceImages();
           renderReferencePreview();
         } catch (error) {
@@ -1118,73 +1108,47 @@
           return;
         }
 
-        const requestInfo = {
-          prompt,
-          model,
-          size,
-          quality: String(formData.get("quality") || ""),
-        };
         setStatus("创建任务中", "running");
         taskIdNode.textContent = "正在创建任务...";
-
         const payload = {
           model,
           prompt,
           n,
           size,
           quality: formData.get("quality"),
+          image: referenceImages,
         };
-        if (referenceImages.length > 0) {
-          payload.image = referenceImages;
-        }
 
         try {
-          const result = await requestJson(`${API_BASE}/images/generations?async=true`, {
+          const result = await requestJson("/api/images/generations", {
             method: "POST",
-            headers: {
-              Authorization: `Bearer ${apiKey}`,
-              "Content-Type": "application/json",
-            },
             body: JSON.stringify(payload),
           });
-
-          const taskId = normalizeTaskId(result);
-          if (!taskId) {
-            throw new Error("接口没有返回任务 ID，请检查返回结构。");
-          }
-
           const task = {
-            id: taskId,
-            apiKey,
-            request: requestInfo,
+            id: result.id,
             pollCount: 0,
             timer: null,
           };
-          activeTasks.set(taskId, task);
+          activeTasks.set(task.id, task);
           updateTaskControls();
           updateActiveStatus();
           writeLog([
-            `任务已创建`,
-            `任务 ID: ${taskId}`,
-            `后台每 30 秒自动查询一次结果...`,
+            "任务已创建",
+            `任务 ID: ${task.id}`,
+            "后台每 30 秒自动查询一次结果...",
             `当前后台任务: ${activeTasks.size}`,
           ]);
           await pollTask(task);
         } catch (error) {
-          taskIdNode.textContent = "任务创建失败";
-          updateTaskControls();
           updateActiveStatus("创建失败", "error");
           showError(error.message);
         }
       });
 
       stopBtn.addEventListener("click", () => {
-        stopPolling("已停止查询");
-      });
-
-      clearWorksBtn.addEventListener("click", () => {
-        localStorage.removeItem(HISTORY_KEY);
-        renderWorks();
+        activeTasks.forEach((task) => task.timer && clearTimeout(task.timer));
+        activeTasks.clear();
+        updateTaskControls();
       });
 
       referenceUrlsInput.addEventListener("input", async () => {
@@ -1214,7 +1178,9 @@
         customSizeFields.classList.toggle("hidden", sizeSelect.value !== "custom");
       });
 
-      renderWorks();
+      refreshWorksBtn.addEventListener("click", loadWorks);
+
+      loadMe();
     </script>
   </body>
 </html>
