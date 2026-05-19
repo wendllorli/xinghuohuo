@@ -1037,6 +1037,10 @@
           currentUser.totalQuota == null
             ? "不限"
             : Math.max(0, currentUser.totalQuota - currentUser.usedTotal);
+        const videoLeft =
+          currentUser.videoQuota == null
+            ? "不限"
+            : Math.max(0, currentUser.videoQuota - (currentUser.videoUsed || 0));
         renderProfileSummary([
           { text: currentUser.email },
           {
@@ -1046,6 +1050,7 @@
           },
           { text: `今日 ${dailyLeft}` },
           { text: `总量 ${totalLeft}` },
+          { text: `视频 ${videoLeft}` },
           {
             text: activeTasks.size > 0 ? `${activeTasks.size} 个任务后台生成中` : "暂无后台任务",
             dot: activeTasks.size > 0,
@@ -1109,9 +1114,13 @@
           currentUser.totalQuota == null
             ? "不限"
             : Math.max(0, currentUser.totalQuota - currentUser.usedTotal);
+        const videoLeft =
+          currentUser.videoQuota == null
+            ? "不限"
+            : Math.max(0, currentUser.videoQuota - (currentUser.videoUsed || 0));
 
         memberPill.textContent = currentUser.isMember
-          ? `会员 · 今日 ${dailyLeft} · 总量 ${totalLeft}`
+          ? `会员 · 今日 ${dailyLeft} · 总量 ${totalLeft} · 视频 ${videoLeft}`
           : "待管理员开通";
         refreshProfileSummary();
         submitBtn.disabled = !currentUser.isMember;

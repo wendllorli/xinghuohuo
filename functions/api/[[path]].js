@@ -89,8 +89,8 @@ async function register(request, env) {
   await env.DB.prepare(
     `INSERT INTO users (
       id, email, password_hash, salt, is_member, daily_quota, total_quota,
-      used_total, member_expires_at, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, 0, 0, 0, 0, NULL, ?, ?)`,
+      used_total, video_quota, video_used, member_expires_at, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, 0, 0, 0, 0, 0, 0, NULL, ?, ?)`,
   )
     .bind(id, email, passwordHash, salt, now, now)
     .run();
@@ -227,7 +227,7 @@ async function createVideoTask(request, env) {
     throw httpError(400, "REFERENCE 模式暂不支持 9:16。");
   }
 
-  await ensureQuota(env, membership, 1);
+  await ensureVideoQuota(env, membership);
 
   const upstreamPayload = {
     model,
@@ -264,7 +264,7 @@ async function createVideoTask(request, env) {
     .bind(taskId, user.id, prompt, model, aspectRatio, quality, now, now)
     .run();
   await recordReferenceImages(env, request, user.id, taskId, imageUrls, now);
-  await consumeQuota(env, user.id, 1);
+  await consumeVideoQuota(env, user.id);
 
   return json({ id: taskId, mediaType: "video" });
 }
@@ -436,23 +436,26 @@ async function updateMembership(request, env) {
   const dailyQuota = nullableInt(body.dailyQuota, 20);
   const totalQuota = nullableInt(body.totalQuota, 200);
   const usedTotal = body.usedTotal === undefined ? null : nullableInt(body.usedTotal, 0);
+  const videoQuota = nullableInt(body.videoQuota, 0);
+  const videoUsed = body.videoUsed === undefined ? null : nullableInt(body.videoUsed, 0);
   const expiresAt = body.expiresAt ? String(body.expiresAt) : null;
-  if (usedTotal === null) {
+  if (usedTotal === null && videoUsed === null) {
     await env.DB.prepare(
       `UPDATE users
-       SET is_member = ?, daily_quota = ?, total_quota = ?, member_expires_at = ?, updated_at = ?
+       SET is_member = ?, daily_quota = ?, total_quota = ?, video_quota = ?,
+         member_expires_at = ?, updated_at = ?
        WHERE id = ?`,
     )
-      .bind(isMember, dailyQuota, totalQuota, expiresAt, nowIso(), user.id)
+      .bind(isMember, dailyQuota, totalQuota, videoQuota, expiresAt, nowIso(), user.id)
       .run();
   } else {
     await env.DB.prepare(
       `UPDATE users
        SET is_member = ?, daily_quota = ?, total_quota = ?, used_total = ?,
-         member_expires_at = ?, updated_at = ?
+         video_quota = ?, video_used = ?, member_expires_at = ?, updated_at = ?
        WHERE id = ?`,
     )
-      .bind(isMember, dailyQuota, totalQuota, usedTotal, expiresAt, nowIso(), user.id)
+      .bind(isMember, dailyQuota, totalQuota, usedTotal || 0, videoQuota, videoUsed || 0, expiresAt, nowIso(), user.id)
       .run();
   }
   return json({ user: await publicUser(env, user.id) });
@@ -469,6 +472,7 @@ async function listUsers(request, env) {
   const rows = await env.DB.prepare(
     `SELECT id, email, is_member AS isMember, daily_quota AS dailyQuota,
       total_quota AS totalQuota, used_total AS usedTotal,
+      video_quota AS videoQuota, video_used AS videoUsed,
       member_expires_at AS memberExpiresAt, created_at AS createdAt,
       updated_at AS updatedAt
      FROM users
@@ -516,6 +520,7 @@ async function publicUser(env, userId) {
   const user = await env.DB.prepare(
     `SELECT id, email, is_member AS isMember, daily_quota AS dailyQuota,
       total_quota AS totalQuota, used_total AS usedTotal,
+      video_quota AS videoQuota, video_used AS videoUsed,
       member_expires_at AS memberExpiresAt, created_at AS createdAt
      FROM users WHERE id = ?`,
   )
@@ -544,6 +549,12 @@ async function ensureQuota(env, user, amount) {
   }
 }
 
+async function ensureVideoQuota(env, user) {
+  if (user.videoQuota != null && user.videoUsed + 1 > user.videoQuota) {
+    throw httpError(403, "视频生成次数不足，请联系管理员开通。");
+  }
+}
+
 async function consumeQuota(env, userId, amount) {
   const today = todayKey();
   await env.DB.batch([
@@ -556,6 +567,12 @@ async function consumeQuota(env, userId, amount) {
        DO UPDATE SET used_count = used_count + excluded.used_count, updated_at = excluded.updated_at`,
     ).bind(userId, today, amount, nowIso()),
   ]);
+}
+
+async function consumeVideoQuota(env, userId) {
+  await env.DB.prepare("UPDATE users SET video_used = video_used + 1, updated_at = ? WHERE id = ?")
+    .bind(nowIso(), userId)
+    .run();
 }
 
 function validateSize(size) {

@@ -207,7 +207,7 @@
 
       .stats {
         display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(6, minmax(0, 1fr));
         gap: 8px;
       }
 
@@ -353,6 +353,8 @@
                   <div class="stat"><span>每日额度</span><strong>${escapeHtml(formatValue(user.dailyQuota))}</strong></div>
                   <div class="stat"><span>总已用</span><strong>${escapeHtml(user.usedTotal)}</strong></div>
                   <div class="stat"><span>总额度</span><strong>${escapeHtml(formatValue(user.totalQuota))}</strong></div>
+                  <div class="stat"><span>视频已用</span><strong>${escapeHtml(user.videoUsed ?? 0)}</strong></div>
+                  <div class="stat"><span>视频额度</span><strong>${escapeHtml(formatValue(user.videoQuota ?? 0))}</strong></div>
                 </div>
 
                 <div class="row">
@@ -363,6 +365,16 @@
                   <div class="field">
                     <label>总次数</label>
                     <input name="totalQuota" type="number" min="0" value="${escapeHtml(user.totalQuota ?? 200)}" />
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="field">
+                    <label>视频总次数</label>
+                    <input name="videoQuota" type="number" min="0" value="${escapeHtml(user.videoQuota ?? 0)}" />
+                  </div>
+                  <div class="field">
+                    <label>视频已用</label>
+                    <input name="videoUsed" type="number" min="0" value="${escapeHtml(user.videoUsed ?? 0)}" />
                   </div>
                 </div>
                 <div class="row">
@@ -422,6 +434,8 @@
           dailyQuota: Number(card.querySelector('[name="dailyQuota"]').value || 0),
           totalQuota: Number(card.querySelector('[name="totalQuota"]').value || 0),
           usedTotal: Number(card.querySelector('[name="usedTotal"]').value || 0),
+          videoQuota: Number(card.querySelector('[name="videoQuota"]').value || 0),
+          videoUsed: Number(card.querySelector('[name="videoUsed"]').value || 0),
           expiresAt: toIsoOrNull(card.querySelector('[name="expiresAt"]').value),
         };
         setMessage("保存中...");
