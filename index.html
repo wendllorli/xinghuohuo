@@ -31,15 +31,62 @@
       body {
         margin: 0;
         min-height: 100vh;
+        overflow-x: hidden;
         background:
-          linear-gradient(135deg, rgba(15, 118, 110, 0.12), transparent 34%),
-          linear-gradient(315deg, rgba(132, 204, 22, 0.1), transparent 42%),
-          linear-gradient(180deg, rgba(255, 255, 255, 0.96), transparent 280px),
+          radial-gradient(circle at 12% 16%, rgba(16, 185, 129, 0.1), transparent 28%),
+          radial-gradient(circle at 86% 78%, rgba(245, 158, 11, 0.075), transparent 26%),
+          linear-gradient(135deg, #f7faf8 0%, #f9fbfa 48%, #fcfbf7 100%),
           var(--bg);
         color: var(--ink);
         font-family:
           Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
           "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      }
+
+      body::before,
+      body::after {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+      }
+
+      body::before {
+        z-index: -2;
+        background:
+          linear-gradient(
+            rgba(15, 118, 110, 0.014) 1px,
+            transparent 1px
+          ),
+          linear-gradient(
+            90deg,
+            rgba(15, 118, 110, 0.014) 1px,
+            transparent 1px
+          ),
+          linear-gradient(
+            115deg,
+            transparent 0%,
+            transparent 36%,
+            rgba(15, 118, 110, 0.028) 36.15%,
+            transparent 36.45%,
+            transparent 64%,
+            rgba(196, 122, 26, 0.022) 64.15%,
+            transparent 64.45%,
+            transparent 100%
+          );
+        background-size: 36px 36px, 36px 36px, auto;
+        mask-image: radial-gradient(circle at center, rgba(0, 0, 0, 0.62), transparent 78%);
+      }
+
+      body::after {
+        z-index: -1;
+        background:
+          radial-gradient(circle at -80px -110px, rgba(167, 243, 208, 0.18) 0 190px, transparent 250px),
+          radial-gradient(circle at calc(100% + 96px) 24px, rgba(153, 246, 228, 0.12) 0 160px, transparent 235px),
+          radial-gradient(circle at calc(100% + 80px) calc(100% + 120px), rgba(254, 243, 199, 0.24) 0 190px, transparent 270px),
+          radial-gradient(circle at -140px -120px, transparent 0 438px, rgba(15, 118, 110, 0.045) 439px 440px, transparent 441px 560px, rgba(15, 118, 110, 0.035) 561px 562px, transparent 563px 680px, rgba(15, 118, 110, 0.026) 681px 682px, transparent 683px),
+          radial-gradient(circle at calc(100% + 220px) calc(100% + 260px), transparent 0 578px, rgba(15, 118, 110, 0.032) 579px 580px, transparent 581px 760px, rgba(180, 83, 9, 0.045) 761px 762px, transparent 763px);
+        filter: blur(0);
       }
 
       button,
@@ -50,6 +97,8 @@
       }
 
       .shell {
+        position: relative;
+        z-index: 1;
         width: min(1220px, calc(100vw - 32px));
         margin: 0 auto;
         padding: 24px 0 42px;
