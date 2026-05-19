@@ -831,10 +831,6 @@
                 <option value="REFERENCE">参考图</option>
               </select>
             </div>
-            <div class="field">
-              <label for="duration">时长</label>
-              <input id="duration" name="duration" type="number" min="1" max="60" value="8" />
-            </div>
           </div>
 
           <div class="row">
@@ -963,12 +959,9 @@
         quality: ["auto", "low", "medium", "high"],
       };
       const videoOptions = {
-        model: [
-          { value: "veo3.1-fast", label: "VEO3.1 Fast" },
-          { value: "veo3.1-pro", label: "VEO3.1 Pro" },
-        ],
+        model: [{ value: "veo3.1-fast", label: "VEO3.1 Fast" }],
         size: ["16:9", "9:16"],
-        quality: ["720p", "1080p", "4k"],
+        quality: ["720p", "1080p"],
       };
 
       function escapeHtml(value) {
@@ -1503,7 +1496,7 @@
                 model,
                 prompt,
                 aspect_ratio: size,
-                duration: Number(formData.get("duration") || 8),
+                duration: 8,
                 generation_type: formData.get("generationType"),
                 quality: formData.get("quality"),
                 image_urls: referenceImages,

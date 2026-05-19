@@ -206,15 +206,15 @@ async function createVideoTask(request, env) {
 
   const body = await readJson(request);
   const prompt = String(body.prompt || "").trim();
-  const model = validateEnum(String(body.model || "veo3.1-fast"), ["veo3.1-fast", "veo3.1-pro"], "视频模型不正确。");
+  const model = validateEnum(String(body.model || "veo3.1-fast"), ["veo3.1-fast"], "暂不支持该视频模型。");
   const aspectRatio = validateEnum(String(body.aspect_ratio || "16:9"), ["16:9", "9:16"], "视频比例不正确。");
-  const quality = validateEnum(String(body.quality || "1080p"), ["720p", "1080p", "4k"], "视频清晰度不正确。");
+  const quality = validateEnum(String(body.quality || "1080p"), ["720p", "1080p"], "暂不支持该视频清晰度。");
   const generationType = validateEnum(
     String(body.generation_type || "TEXT"),
     ["TEXT", "FIRST&LAST", "REFERENCE"],
     "视频生成模式不正确。",
   );
-  const duration = clampInt(body.duration || 8, 1, 60);
+  const duration = 8;
   const imageUrls = Array.isArray(body.image_urls) ? body.image_urls.filter(Boolean) : [];
   if (!prompt) throw httpError(400, "请填写提示词。");
   if (generationType === "TEXT" && imageUrls.length > 0) {
