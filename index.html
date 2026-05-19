@@ -445,6 +445,22 @@
         font-size: 18px;
       }
 
+      .loader {
+        width: 42px;
+        height: 42px;
+        margin: 0 auto 14px;
+        border: 4px solid rgba(14, 117, 105, 0.14);
+        border-top-color: var(--accent);
+        border-radius: 999px;
+        animation: spin 0.9s linear infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
       .gallery,
       .works-list {
         display: grid;
@@ -736,8 +752,9 @@
           <div class="result-body">
             <div id="emptyState" class="empty">
               <div>
-                <strong>等待第一张图</strong>
-                <span>登录并提交后，生成结果会显示在这里并保存到作品。</span>
+                <div id="resultLoader" class="loader hidden"></div>
+                <strong id="emptyTitle">等待第一张图</strong>
+                <span id="emptyDescription">登录并提交后，生成结果会显示在这里并保存到作品。</span>
               </div>
             </div>
             <div id="gallery" class="gallery hidden"></div>
@@ -779,6 +796,9 @@
       const statusText = document.querySelector("#statusText");
       const taskIdNode = document.querySelector("#taskId");
       const emptyState = document.querySelector("#emptyState");
+      const resultLoader = document.querySelector("#resultLoader");
+      const emptyTitle = document.querySelector("#emptyTitle");
+      const emptyDescription = document.querySelector("#emptyDescription");
       const gallery = document.querySelector("#gallery");
       const logNode = document.querySelector("#log");
       const worksList = document.querySelector("#worksList");
@@ -1040,6 +1060,16 @@
         stopBtn.disabled = activeTasks.size === 0;
       }
 
+      function setResultLoading(isLoading) {
+        gallery.classList.add("hidden");
+        emptyState.classList.remove("hidden");
+        resultLoader.classList.toggle("hidden", !isLoading);
+        emptyTitle.textContent = isLoading ? "图片正在生成中" : "等待第一张图";
+        emptyDescription.textContent = isLoading
+          ? "任务已提交，系统会在后台自动查询结果，完成后保存到作品。"
+          : "登录并提交后，生成结果会显示在这里并保存到作品。";
+      }
+
       function updateActiveStatus(fallbackText = "可以生成", fallbackTone = "done") {
         if (activeTasks.size > 0) {
           setStatus(`${activeTasks.size} 个任务后台生成中`, "running");
@@ -1060,7 +1090,7 @@
                 <img src="${src}" alt="生成图片 ${index + 1}" loading="lazy" />
                 <div class="image-actions">
                   <span class="hint">图片 ${index + 1}</span>
-                  <a href="${src}" target="_blank" rel="noreferrer">打开原图</a>
+                  <a href="${src}" target="_blank" rel="noreferrer">预览</a>
                 </div>
               </article>
             `;
@@ -1083,7 +1113,7 @@
                 <div class="work-meta">
                   <div class="work-prompt" title="${prompt}">${prompt}</div>
                   <div class="work-info">${time}${size ? ` · ${size}` : ""}</div>
-                  <a href="${src}" target="_blank" rel="noreferrer">打开原图</a>
+                  <a href="${src}" target="_blank" rel="noreferrer">预览</a>
                 </div>
               </article>
             `;
@@ -1198,6 +1228,7 @@
 
         setStatus("创建任务中", "running");
         taskIdNode.textContent = "正在创建任务...";
+        setResultLoading(true);
         const payload = {
           model,
           prompt,
