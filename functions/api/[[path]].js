@@ -62,6 +62,9 @@ export async function onRequest(context) {
     if (request.method === "POST" && path === "admin/membership") {
       return await updateMembership(request, env);
     }
+    if (request.method === "POST" && path === "admin/users/delete") {
+      return await deleteUser(request, env);
+    }
 
     return json({ message: "API not found" }, 404);
   } catch (error) {
@@ -459,6 +462,40 @@ async function updateMembership(request, env) {
       .run();
   }
   return json({ user: await publicUser(env, user.id) });
+}
+
+async function deleteUser(request, env) {
+  requireAdmin(request, env);
+  const body = await readJson(request);
+  const email = normalizeEmail(body.email);
+  if (!email) throw httpError(400, "请输入用户邮箱。");
+
+  const user = await env.DB.prepare("SELECT id FROM users WHERE email = ?").bind(email).first();
+  if (!user) throw httpError(404, "用户不存在。");
+
+  if (env.REFERENCE_IMAGES) {
+    const references = await env.DB.prepare(
+      `SELECT object_key AS objectKey
+       FROM task_reference_images
+       WHERE user_id = ? AND deleted_at IS NULL`,
+    )
+      .bind(user.id)
+      .all();
+    for (const row of references.results || []) {
+      await env.REFERENCE_IMAGES.delete(row.objectKey);
+    }
+  }
+
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM task_reference_images WHERE user_id = ?").bind(user.id),
+    env.DB.prepare("DELETE FROM works WHERE user_id = ?").bind(user.id),
+    env.DB.prepare("DELETE FROM image_tasks WHERE user_id = ?").bind(user.id),
+    env.DB.prepare("DELETE FROM usage_days WHERE user_id = ?").bind(user.id),
+    env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(user.id),
+    env.DB.prepare("DELETE FROM users WHERE id = ?").bind(user.id),
+  ]);
+
+  return json({ ok: true });
 }
 
 async function listUsers(request, env) {

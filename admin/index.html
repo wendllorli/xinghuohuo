@@ -390,6 +390,7 @@
                 <div class="actions">
                   <button class="primary" type="button" data-action="enable">开通/更新</button>
                   <button class="danger" type="button" data-action="disable">关闭会员</button>
+                  <button class="danger" type="button" data-action="delete">删除账号</button>
                 </div>
               </article>
             `,
@@ -447,6 +448,19 @@
         setMessage(`${email} 已更新。`);
       }
 
+      async function deleteUser(card) {
+        const email = card.dataset.email;
+        const confirmed = window.confirm(`确定删除 ${email} 吗？该账号的登录会话、用量、任务和作品记录都会删除。`);
+        if (!confirmed) return;
+        setMessage("删除中...");
+        await requestJson("/api/admin/users/delete", {
+          method: "POST",
+          body: JSON.stringify({ email }),
+        });
+        await loadUsers();
+        setMessage(`${email} 已删除。`);
+      }
+
       saveTokenBtn.addEventListener("click", () => loadUsers().catch((error) => setMessage(error.message)));
       refreshBtn.addEventListener("click", () => loadUsers().catch((error) => setMessage(error.message)));
       searchInput.addEventListener("keydown", (event) => {
@@ -459,6 +473,10 @@
         const button = event.target.closest("[data-action]");
         if (!button) return;
         const card = button.closest(".user-card");
+        if (button.dataset.action === "delete") {
+          deleteUser(card).catch((error) => setMessage(error.message));
+          return;
+        }
         updateUser(card, button.dataset.action === "enable").catch((error) => setMessage(error.message));
       });
 
