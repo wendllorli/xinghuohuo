@@ -807,7 +807,6 @@
               </div>
             </div>
             <div id="gallery" class="gallery hidden"></div>
-            <div id="log" class="log hidden"></div>
           </div>
         </section>
       </section>
@@ -849,7 +848,6 @@
       const emptyTitle = document.querySelector("#emptyTitle");
       const emptyDescription = document.querySelector("#emptyDescription");
       const gallery = document.querySelector("#gallery");
-      const logNode = document.querySelector("#log");
       const worksList = document.querySelector("#worksList");
       const emptyWorks = document.querySelector("#emptyWorks");
       const refreshWorksBtn = document.querySelector("#refreshWorksBtn");
@@ -938,11 +936,6 @@
             tone: activeTasks.size > 0 ? "running" : "",
           },
         ]);
-      }
-
-      function writeLog(lines) {
-        logNode.textContent = Array.isArray(lines) ? lines.join("\n") : lines;
-        logNode.classList.remove("hidden");
       }
 
       async function requestJson(url, options = {}) {
@@ -1224,12 +1217,6 @@
         try {
           const payload = await requestJson(`/api/tasks/${encodeURIComponent(task.id)}`);
           const images = payload.images || [];
-          writeLog([
-            `任务 ID: ${task.id}`,
-            `状态: ${payload.status || "未知"}`,
-            `图片数量: ${images.length}`,
-            `后台任务: ${activeTasks.size}`,
-          ]);
 
           if (images.length > 0) {
             renderImages(images);
@@ -1338,12 +1325,6 @@
           activeTasks.set(task.id, task);
           updateTaskControls();
           updateActiveStatus();
-          writeLog([
-            "任务已创建",
-            `任务 ID: ${task.id}`,
-            "后台每 30 秒自动查询一次结果...",
-            `当前后台任务: ${activeTasks.size}`,
-          ]);
           await pollTask(task);
         } catch (error) {
           updateActiveStatus("创建失败", "error");
