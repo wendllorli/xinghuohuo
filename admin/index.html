@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>星火 AI 管理后台</title>
+    <style>
+      :root {
+        --bg: #f7f8f3;
+        --panel: #fffdf8;
+        --ink: #171d22;
+        --muted: #68717c;
+        --line: #e1ddd4;
+        --accent: #0e7569;
+        --accent-strong: #084e47;
+        --accent-soft: #e1f2ed;
+        --danger: #b42318;
+        --shadow: 0 18px 60px rgba(38, 44, 39, 0.12);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+          linear-gradient(140deg, rgba(14, 117, 105, 0.12), transparent 34%),
+          linear-gradient(320deg, rgba(183, 100, 46, 0.12), transparent 40%),
+          var(--bg);
+        color: var(--ink);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      }
+
+      button,
+      input {
+        font: inherit;
+      }
+
+      .shell {
+        width: min(1160px, calc(100vw - 32px));
+        margin: 0 auto;
+        padding: 26px 0 42px;
+      }
+
+      .topbar,
+      .panel {
+        border: 1px solid rgba(225, 221, 212, 0.92);
+        border-radius: 8px;
+        background: rgba(255, 253, 248, 0.96);
+        box-shadow: var(--shadow);
+      }
+
+      .topbar {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 18px;
+        padding: 24px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(28px, 4vw, 42px);
+        line-height: 1.1;
+      }
+
+      .subtitle {
+        margin: 10px 0 0;
+        color: var(--muted);
+        line-height: 1.7;
+      }
+
+      .panel {
+        padding: 20px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 360px minmax(0, 1fr);
+        gap: 18px;
+        align-items: start;
+      }
+
+      .field {
+        display: grid;
+        gap: 8px;
+        margin-bottom: 14px;
+      }
+
+      label {
+        color: #343941;
+        font-size: 13px;
+        font-weight: 750;
+      }
+
+      input {
+        width: 100%;
+        min-height: 42px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fff;
+        color: var(--ink);
+        padding: 0 12px;
+        outline: none;
+      }
+
+      input:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 4px rgba(14, 117, 105, 0.12);
+      }
+
+      .row {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      button {
+        min-height: 42px;
+        border: 0;
+        border-radius: 8px;
+        padding: 0 14px;
+        cursor: pointer;
+        font-weight: 750;
+      }
+
+      .primary {
+        background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+        color: #fff;
+      }
+
+      .secondary {
+        border: 1px solid rgba(14, 117, 105, 0.16);
+        background: var(--accent-soft);
+        color: var(--accent-strong);
+      }
+
+      .danger {
+        background: rgba(180, 35, 24, 0.1);
+        color: var(--danger);
+      }
+
+      .hint,
+      .message {
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.55;
+      }
+
+      .message {
+        margin-top: 12px;
+      }
+
+      .users {
+        display: grid;
+        gap: 12px;
+      }
+
+      .user-card {
+        display: grid;
+        gap: 12px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fff;
+        padding: 14px;
+      }
+
+      .user-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .email {
+        font-weight: 800;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        min-height: 28px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: var(--accent-soft);
+        color: var(--accent-strong);
+        font-size: 12px;
+        font-weight: 800;
+        white-space: nowrap;
+      }
+
+      .badge.off {
+        background: #f2f0ea;
+        color: var(--muted);
+      }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .stat {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 10px;
+      }
+
+      .stat span {
+        display: block;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .stat strong {
+        display: block;
+        margin-top: 4px;
+        font-size: 15px;
+      }
+
+      .hidden {
+        display: none !important;
+      }
+
+      @media (max-width: 860px) {
+        .topbar,
+        .user-head {
+          align-items: start;
+          flex-direction: column;
+        }
+
+        .grid,
+        .stats {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <h1>星火 AI 管理后台</h1>
+          <p class="subtitle">管理注册用户、开通会员、设置每日次数和总次数。</p>
+        </div>
+        <a href="/" class="hint">返回前台</a>
+      </header>
+
+      <section class="grid">
+        <aside class="panel">
+          <div class="field">
+            <label for="adminToken">管理员令牌</label>
+            <input id="adminToken" type="password" autocomplete="off" placeholder="x-admin-token" />
+            <div class="hint">令牌只保存在当前浏览器。</div>
+          </div>
+          <div class="field">
+            <label for="search">搜索邮箱</label>
+            <input id="search" type="search" placeholder="user@example.com" />
+          </div>
+          <div class="actions">
+            <button id="saveTokenBtn" class="primary" type="button">保存并查询</button>
+            <button id="refreshBtn" class="secondary" type="button">刷新</button>
+          </div>
+          <div id="message" class="message"></div>
+        </aside>
+
+        <section class="panel">
+          <div id="users" class="users"></div>
+          <div id="empty" class="hint">输入管理员令牌后查询用户。</div>
+        </section>
+      </section>
+    </main>
+
+    <script>
+      const TOKEN_KEY = "xinghuohuo_admin_token";
+      const tokenInput = document.querySelector("#adminToken");
+      const searchInput = document.querySelector("#search");
+      const saveTokenBtn = document.querySelector("#saveTokenBtn");
+      const refreshBtn = document.querySelector("#refreshBtn");
+      const message = document.querySelector("#message");
+      const usersNode = document.querySelector("#users");
+      const emptyNode = document.querySelector("#empty");
+
+      tokenInput.value = localStorage.getItem(TOKEN_KEY) || "";
+
+      function setMessage(text) {
+        message.textContent = text || "";
+      }
+
+      function escapeHtml(value) {
+        return String(value ?? "")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#039;");
+      }
+
+      async function requestJson(url, options = {}) {
+        const token = tokenInput.value.trim();
+        const response = await fetch(url, {
+          ...options,
+          headers: {
+            "x-admin-token": token,
+            ...(options.body ? { "Content-Type": "application/json" } : {}),
+            ...(options.headers || {}),
+          },
+        });
+        const text = await response.text();
+        let data = {};
+        try {
+          data = text ? JSON.parse(text) : {};
+        } catch {
+          data = { raw: text };
+        }
+        if (!response.ok) {
+          throw new Error(data.message || data.error || data.raw || `请求失败：HTTP ${response.status}`);
+        }
+        return data;
+      }
+
+      function formatValue(value) {
+        if (value === null || value === undefined || value === "") return "不限";
+        return value;
+      }
+
+      function renderUsers(users) {
+        usersNode.innerHTML = users
+          .map(
+            (user) => `
+              <article class="user-card" data-email="${escapeHtml(user.email)}">
+                <div class="user-head">
+                  <div>
+                    <div class="email">${escapeHtml(user.email)}</div>
+                    <div class="hint">注册：${escapeHtml(user.createdAt || "")}</div>
+                  </div>
+                  <span class="badge ${user.isMember ? "" : "off"}">${user.isMember ? "会员已开通" : "未开通"}</span>
+                </div>
+
+                <div class="stats">
+                  <div class="stat"><span>今日已用</span><strong>${escapeHtml(user.usedToday)}</strong></div>
+                  <div class="stat"><span>每日额度</span><strong>${escapeHtml(formatValue(user.dailyQuota))}</strong></div>
+                  <div class="stat"><span>总已用</span><strong>${escapeHtml(user.usedTotal)}</strong></div>
+                  <div class="stat"><span>总额度</span><strong>${escapeHtml(formatValue(user.totalQuota))}</strong></div>
+                </div>
+
+                <div class="row">
+                  <div class="field">
+                    <label>每日次数</label>
+                    <input name="dailyQuota" type="number" min="0" value="${escapeHtml(user.dailyQuota ?? 20)}" />
+                  </div>
+                  <div class="field">
+                    <label>总次数</label>
+                    <input name="totalQuota" type="number" min="0" value="${escapeHtml(user.totalQuota ?? 200)}" />
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="field">
+                    <label>总已用</label>
+                    <input name="usedTotal" type="number" min="0" value="${escapeHtml(user.usedTotal ?? 0)}" />
+                  </div>
+                  <div class="field">
+                    <label>到期时间</label>
+                    <input name="expiresAt" type="datetime-local" value="${toLocalDateTime(user.memberExpiresAt)}" />
+                  </div>
+                </div>
+                <div class="actions">
+                  <button class="primary" type="button" data-action="enable">开通/更新</button>
+                  <button class="danger" type="button" data-action="disable">关闭会员</button>
+                </div>
+              </article>
+            `,
+          )
+          .join("");
+        emptyNode.classList.toggle("hidden", users.length > 0);
+      }
+
+      function toLocalDateTime(value) {
+        if (!value) return "";
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return "";
+        const pad = (number) => String(number).padStart(2, "0");
+        return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+      }
+
+      function toIsoOrNull(value) {
+        if (!value) return null;
+        const date = new Date(value);
+        return Number.isNaN(date.getTime()) ? null : date.toISOString();
+      }
+
+      async function loadUsers() {
+        const token = tokenInput.value.trim();
+        if (!token) {
+          setMessage("请输入管理员令牌。");
+          return;
+        }
+        localStorage.setItem(TOKEN_KEY, token);
+        setMessage("查询中...");
+        const q = encodeURIComponent(searchInput.value.trim());
+        const data = await requestJson(`/api/admin/users?q=${q}`);
+        renderUsers(data.users || []);
+        setMessage(`已加载 ${data.users?.length || 0} 个用户。`);
+      }
+
+      async function updateUser(card, isMember) {
+        const email = card.dataset.email;
+        const payload = {
+          email,
+          isMember,
+          dailyQuota: Number(card.querySelector('[name="dailyQuota"]').value || 0),
+          totalQuota: Number(card.querySelector('[name="totalQuota"]').value || 0),
+          usedTotal: Number(card.querySelector('[name="usedTotal"]').value || 0),
+          expiresAt: toIsoOrNull(card.querySelector('[name="expiresAt"]').value),
+        };
+        setMessage("保存中...");
+        await requestJson("/api/admin/membership", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+        await loadUsers();
+        setMessage(`${email} 已更新。`);
+      }
+
+      saveTokenBtn.addEventListener("click", () => loadUsers().catch((error) => setMessage(error.message)));
+      refreshBtn.addEventListener("click", () => loadUsers().catch((error) => setMessage(error.message)));
+      searchInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          loadUsers().catch((error) => setMessage(error.message));
+        }
+      });
+
+      usersNode.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-action]");
+        if (!button) return;
+        const card = button.closest(".user-card");
+        updateUser(card, button.dataset.action === "enable").catch((error) => setMessage(error.message));
+      });
+
+      if (tokenInput.value) {
+        loadUsers().catch((error) => setMessage(error.message));
+      }
+    </script>
+  </body>
+</html>

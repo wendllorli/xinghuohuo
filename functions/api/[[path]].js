@@ -43,6 +43,12 @@ export async function onRequest(context) {
       const taskId = decodeURIComponent(path.slice("tasks/".length));
       return getTask(request, env, taskId);
     }
+    if (path.startsWith("admin/") && !isAdminRequest(request, env)) {
+      return json({ message: "管理员令牌不正确。" }, 401);
+    }
+    if (request.method === "GET" && path === "admin/users") {
+      return listUsers(request, env);
+    }
     if (request.method === "POST" && path === "admin/membership") {
       return updateMembership(request, env);
     }
@@ -235,10 +241,7 @@ async function getTask(request, env, taskId) {
 }
 
 async function updateMembership(request, env) {
-  const adminToken = request.headers.get("x-admin-token") || "";
-  if (!env.ADMIN_TOKEN || adminToken !== env.ADMIN_TOKEN) {
-    throw httpError(401, "管理员令牌不正确。");
-  }
+  requireAdmin(request, env);
   const body = await readJson(request);
   const email = normalizeEmail(body.email);
   if (!email) throw httpError(400, "请输入用户邮箱。");
@@ -249,15 +252,66 @@ async function updateMembership(request, env) {
   const isMember = body.isMember === false ? 0 : 1;
   const dailyQuota = nullableInt(body.dailyQuota, 20);
   const totalQuota = nullableInt(body.totalQuota, 200);
+  const usedTotal = body.usedTotal === undefined ? null : nullableInt(body.usedTotal, 0);
   const expiresAt = body.expiresAt ? String(body.expiresAt) : null;
-  await env.DB.prepare(
-    `UPDATE users
-     SET is_member = ?, daily_quota = ?, total_quota = ?, member_expires_at = ?, updated_at = ?
-     WHERE id = ?`,
-  )
-    .bind(isMember, dailyQuota, totalQuota, expiresAt, nowIso(), user.id)
-    .run();
+  if (usedTotal === null) {
+    await env.DB.prepare(
+      `UPDATE users
+       SET is_member = ?, daily_quota = ?, total_quota = ?, member_expires_at = ?, updated_at = ?
+       WHERE id = ?`,
+    )
+      .bind(isMember, dailyQuota, totalQuota, expiresAt, nowIso(), user.id)
+      .run();
+  } else {
+    await env.DB.prepare(
+      `UPDATE users
+       SET is_member = ?, daily_quota = ?, total_quota = ?, used_total = ?,
+         member_expires_at = ?, updated_at = ?
+       WHERE id = ?`,
+    )
+      .bind(isMember, dailyQuota, totalQuota, usedTotal, expiresAt, nowIso(), user.id)
+      .run();
+  }
   return json({ user: await publicUser(env, user.id) });
+}
+
+async function listUsers(request, env) {
+  requireAdmin(request, env);
+  const url = new URL(request.url);
+  const q = normalizeEmail(url.searchParams.get("q"));
+  const limit = Math.min(100, Math.max(1, Number.parseInt(url.searchParams.get("limit") || "50", 10)));
+
+  const where = q ? "WHERE email LIKE ?" : "";
+  const params = q ? [`%${q}%`, limit] : [limit];
+  const rows = await env.DB.prepare(
+    `SELECT id, email, is_member AS isMember, daily_quota AS dailyQuota,
+      total_quota AS totalQuota, used_total AS usedTotal,
+      member_expires_at AS memberExpiresAt, created_at AS createdAt,
+      updated_at AS updatedAt
+     FROM users
+     ${where}
+     ORDER BY created_at DESC
+     LIMIT ?`,
+  )
+    .bind(...params)
+    .all();
+
+  const users = [];
+  for (const user of rows.results || []) {
+    users.push(await publicUser(env, user.id));
+  }
+  return json({ users });
+}
+
+function requireAdmin(request, env) {
+  if (!isAdminRequest(request, env)) {
+    throw httpError(401, "管理员令牌不正确。");
+  }
+}
+
+function isAdminRequest(request, env) {
+  const adminToken = request.headers.get("x-admin-token") || "";
+  return Boolean(env.ADMIN_TOKEN && adminToken === env.ADMIN_TOKEN);
 }
 
 async function requireUser(request, env) {
