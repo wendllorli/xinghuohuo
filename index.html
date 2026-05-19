@@ -290,6 +290,49 @@
         color: var(--muted);
       }
 
+      .file-input {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
+
+      .upload-control {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 48px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel-strong);
+        padding: 6px;
+      }
+
+      .upload-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 36px;
+        border-radius: 6px;
+        background: var(--accent-soft);
+        color: var(--accent-strong);
+        cursor: pointer;
+        font-weight: 750;
+        padding: 0 13px;
+        white-space: nowrap;
+      }
+
+      .upload-status {
+        min-width: 0;
+        color: var(--muted);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
       .row {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -658,15 +701,19 @@
             <label for="referenceFiles">参考图</label>
             <div class="reference-tools">
               <input
+                class="file-input"
                 id="referenceFiles"
                 name="referenceFiles"
                 type="file"
                 accept="image/*"
                 multiple
               />
+              <div class="upload-control">
+                <label class="upload-button" for="referenceFiles">上传图片</label>
+                <span id="referenceFileStatus" class="upload-status">未选择图片</span>
+              </div>
               <div id="referencePreview" class="reference-preview hidden"></div>
             </div>
-            <div class="hint">可选，提交时会作为 image 数组传给后端。</div>
           </div>
 
           <div class="row">
@@ -805,6 +852,7 @@
       const emptyWorks = document.querySelector("#emptyWorks");
       const refreshWorksBtn = document.querySelector("#refreshWorksBtn");
       const referenceFilesInput = document.querySelector("#referenceFiles");
+      const referenceFileStatus = document.querySelector("#referenceFileStatus");
       const referencePreview = document.querySelector("#referencePreview");
       const sizeSelect = document.querySelector("#size");
       const customSizeFields = document.querySelector("#customSizeFields");
@@ -1027,11 +1075,19 @@
           )
           .join("");
         referencePreview.classList.toggle("hidden", items.length === 0);
+        referenceFileStatus.textContent =
+          uploadedReferenceImages.length > 0
+            ? `已上传 ${uploadedReferenceImages.length} 张图片`
+            : "未选择图片";
       }
 
       function removeReferenceImage(index) {
         uploadedReferenceImages.splice(index, 1);
         referenceFilesInput.value = "";
+        referenceFileStatus.textContent =
+          uploadedReferenceImages.length > 0
+            ? `已上传 ${uploadedReferenceImages.length} 张图片`
+            : "未选择图片";
       }
 
       function resolveSize(formData) {
@@ -1304,6 +1360,7 @@
           const files = Array.from(referenceFilesInput.files || []);
           if (files.length > 0) {
             setStatus("上传参考图中", "running");
+            referenceFileStatus.textContent = `正在上传 ${files.length} 张图片...`;
             const uploaded = await Promise.all(files.map(uploadReferenceFile));
             uploadedReferenceImages = [...uploadedReferenceImages, ...uploaded];
             setStatus("参考图已上传", "done");
