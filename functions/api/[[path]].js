@@ -188,6 +188,7 @@ async function createImageTask(request, env) {
   )
     .bind(taskId, user.id, prompt, model, size, quality, n, now, now)
     .run();
+  await recordReferenceImages(env, request, user.id, taskId, images, now);
   await consumeQuota(env, user.id, n);
 
   return json({ id: taskId });
@@ -281,9 +282,56 @@ async function getTask(request, env, taskId) {
     await env.DB.prepare("UPDATE image_tasks SET saved_at = ?, state = 'succeeded' WHERE id = ?")
       .bind(now, taskId)
       .run();
+    await cleanupTaskReferenceImages(env, taskId);
   }
 
   return json({ id: taskId, status, images });
+}
+
+async function recordReferenceImages(env, request, userId, taskId, images, now) {
+  const keys = images
+    .map((url) => extractReferenceKey(request, url))
+    .filter(Boolean);
+  for (const key of keys) {
+    await env.DB.prepare(
+      `INSERT OR IGNORE INTO task_reference_images (
+        id, task_id, user_id, object_key, url, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?)`,
+    )
+      .bind(`${taskId}-${key}`, taskId, userId, key, `${new URL(request.url).origin}/api/files/${encodeURIComponent(key)}`, now)
+      .run();
+  }
+}
+
+async function cleanupTaskReferenceImages(env, taskId) {
+  if (!env.REFERENCE_IMAGES) return;
+  const rows = await env.DB.prepare(
+    `SELECT id, object_key AS objectKey
+     FROM task_reference_images
+     WHERE task_id = ? AND deleted_at IS NULL`,
+  )
+    .bind(taskId)
+    .all();
+  const now = nowIso();
+  for (const row of rows.results || []) {
+    await env.REFERENCE_IMAGES.delete(row.objectKey);
+    await env.DB.prepare("UPDATE task_reference_images SET deleted_at = ? WHERE id = ?")
+      .bind(now, row.id)
+      .run();
+  }
+}
+
+function extractReferenceKey(request, value) {
+  try {
+    const url = new URL(value, request.url);
+    const requestUrl = new URL(request.url);
+    if (url.origin !== requestUrl.origin) return "";
+    if (!url.pathname.startsWith("/api/files/")) return "";
+    const key = decodeURIComponent(url.pathname.slice("/api/files/".length));
+    return key.startsWith("references/") ? key : "";
+  } catch {
+    return "";
+  }
 }
 
 function extensionFromType(type) {
