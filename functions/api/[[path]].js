@@ -36,6 +36,12 @@ export async function onRequest(context) {
         .all();
       return json({ works: works.results || [] });
     }
+    if (request.method === "POST" && path === "uploads/reference") {
+      return await uploadReferenceImage(request, env);
+    }
+    if (request.method === "GET" && path.startsWith("files/")) {
+      return await getUploadedFile(request, env, path.slice("files/".length));
+    }
     if (request.method === "POST" && path === "images/generations") {
       return await createImageTask(request, env);
     }
@@ -187,6 +193,46 @@ async function createImageTask(request, env) {
   return json({ id: taskId });
 }
 
+async function uploadReferenceImage(request, env) {
+  if (!env.REFERENCE_IMAGES) throw httpError(500, "REFERENCE_IMAGES bucket is not configured");
+  const user = await requireUser(request, env);
+  const formData = await request.formData();
+  const file = formData.get("file");
+  if (!(file instanceof File)) throw httpError(400, "请上传图片文件。");
+  if (!file.type.startsWith("image/")) throw httpError(400, "只支持图片文件。");
+  if (file.size > 10 * 1024 * 1024) throw httpError(400, "参考图不能超过 10MB。");
+
+  const ext = extensionFromType(file.type);
+  const key = `references/${user.id}/${Date.now()}-${crypto.randomUUID()}${ext}`;
+  await env.REFERENCE_IMAGES.put(key, file.stream(), {
+    httpMetadata: {
+      contentType: file.type,
+      cacheControl: "public, max-age=31536000, immutable",
+    },
+    customMetadata: {
+      userId: user.id,
+      originalName: file.name || "reference-image",
+    },
+  });
+
+  const origin = new URL(request.url).origin;
+  return json({ url: `${origin}/api/files/${encodeURIComponent(key)}`, key });
+}
+
+async function getUploadedFile(request, env, encodedKey) {
+  if (!env.REFERENCE_IMAGES) throw httpError(500, "REFERENCE_IMAGES bucket is not configured");
+  const key = decodeURIComponent(encodedKey);
+  if (!key.startsWith("references/")) throw httpError(404, "文件不存在。");
+  const object = await env.REFERENCE_IMAGES.get(key);
+  if (!object) throw httpError(404, "文件不存在。");
+
+  const headers = new Headers();
+  object.writeHttpMetadata(headers);
+  headers.set("Cache-Control", "public, max-age=31536000, immutable");
+  headers.set("ETag", object.httpEtag);
+  return new Response(object.body, { headers });
+}
+
 async function getTask(request, env, taskId) {
   if (!env.DUOMI_API_KEY) throw httpError(500, "DUOMI_API_KEY is not configured");
   const user = await requireUser(request, env);
@@ -238,6 +284,17 @@ async function getTask(request, env, taskId) {
   }
 
   return json({ id: taskId, status, images });
+}
+
+function extensionFromType(type) {
+  const map = {
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
+    "image/avif": ".avif",
+  };
+  return map[type] || ".png";
 }
 
 async function updateMembership(request, env) {

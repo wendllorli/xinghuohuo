@@ -6,3 +6,7 @@ compatibility_date = "2026-05-19"
 binding = "DB"
 database_name = "xinghuohuo-db"
 database_id = "d79d77d7-1943-47b6-acff-2a2ab778bb5b"
+
+[[r2_buckets]]
+binding = "REFERENCE_IMAGES"
+bucket_name = "xinghuohuo-reference-images"

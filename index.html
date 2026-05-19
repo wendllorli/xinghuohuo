@@ -752,7 +752,7 @@
       const activeTasks = new Map();
       let currentUser = null;
       let referenceImages = [];
-      let referenceFiles = [];
+      let uploadedReferenceImages = [];
 
       function escapeHtml(value) {
         return String(value)
@@ -793,7 +793,9 @@
           credentials: "include",
           ...options,
           headers: {
-            ...(options.body ? { "Content-Type": "application/json" } : {}),
+            ...(options.body && !(options.body instanceof FormData)
+              ? { "Content-Type": "application/json" }
+              : {}),
             ...(options.headers || {}),
           },
         });
@@ -893,19 +895,23 @@
         referenceUrlsInput.value = urls.join("\n");
       }
 
-      function fileToDataUrl(file) {
-        return new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result);
-          reader.onerror = () => reject(new Error(`读取图片失败：${file.name}`));
-          reader.readAsDataURL(file);
-        });
-      }
-
       async function collectReferenceImages() {
         const urlImages = parseReferenceUrls();
-        const fileImages = await Promise.all(referenceFiles.map(fileToDataUrl));
-        return [...urlImages, ...fileImages];
+        return [...urlImages, ...uploadedReferenceImages.map((item) => item.url)];
+      }
+
+      async function uploadReferenceFile(file) {
+        if (!currentUser) throw new Error("请先登录后再上传参考图。");
+        const formData = new FormData();
+        formData.append("file", file);
+        const data = await requestJson("/api/uploads/reference", {
+          method: "POST",
+          body: formData,
+        });
+        return {
+          url: data.url,
+          name: file.name,
+        };
       }
 
       function renderReferencePreview(items = referenceImages) {
@@ -928,7 +934,7 @@
           urlImages.splice(index, 1);
           syncReferenceUrls(urlImages);
         } else {
-          referenceFiles.splice(index - urlImages.length, 1);
+          uploadedReferenceImages.splice(index - urlImages.length, 1);
           referenceFilesInput.value = "";
         }
       }
@@ -1163,11 +1169,19 @@
 
       referenceFilesInput.addEventListener("change", async () => {
         try {
-          referenceFiles = [...referenceFiles, ...Array.from(referenceFilesInput.files || [])];
+          const files = Array.from(referenceFilesInput.files || []);
+          if (files.length > 0) {
+            setStatus("上传参考图中", "running");
+            const uploaded = await Promise.all(files.map(uploadReferenceFile));
+            uploadedReferenceImages = [...uploadedReferenceImages, ...uploaded];
+            setStatus("参考图已上传", "done");
+          }
           referenceImages = await collectReferenceImages();
           renderReferencePreview();
         } catch (error) {
           showError(error.message);
+        } finally {
+          referenceFilesInput.value = "";
         }
       });
 
