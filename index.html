@@ -232,6 +232,33 @@
         background: var(--accent);
       }
 
+      .mode-switch {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+        margin: 0 0 18px;
+        padding: 5px;
+        border: 1px solid rgba(14, 117, 105, 0.14);
+        border-radius: 8px;
+        background: rgba(225, 242, 237, 0.58);
+      }
+
+      .mode-option {
+        min-height: 40px;
+        border: 1px solid transparent;
+        border-radius: 6px;
+        background: transparent;
+        color: var(--accent-strong);
+        box-shadow: none;
+      }
+
+      .mode-option.is-active {
+        border-color: rgba(14, 117, 105, 0.18);
+        background: var(--panel-strong);
+        color: var(--ink);
+        box-shadow: 0 8px 18px rgba(38, 44, 39, 0.08);
+      }
+
       .field {
         display: grid;
         gap: 8px;
@@ -687,6 +714,25 @@
         <form id="imageForm" class="panel form-panel">
           <h2 class="section-title">生成参数</h2>
 
+          <div class="mode-switch" role="tablist" aria-label="生成类型">
+            <button
+              class="mode-option is-active"
+              type="button"
+              data-generation-mode="image"
+              aria-selected="true"
+            >
+              图片生成
+            </button>
+            <button
+              class="mode-option"
+              type="button"
+              data-generation-mode="video"
+              aria-selected="false"
+            >
+              视频生成
+            </button>
+          </div>
+
           <div class="field">
             <label for="prompt">提示词</label>
             <textarea
@@ -837,6 +883,7 @@
       const memberPill = document.querySelector("#memberPill");
       const profileSummary = document.querySelector("#profileSummary");
       const form = document.querySelector("#imageForm");
+      const modeButtons = document.querySelectorAll("[data-generation-mode]");
       const submitBtn = document.querySelector("#submitBtn");
       const stopBtn = document.querySelector("#stopBtn");
       const errorBox = document.querySelector("#errorBox");
@@ -861,6 +908,7 @@
       let currentUser = null;
       let referenceImages = [];
       let uploadedReferenceImages = [];
+      let generationMode = "image";
 
       function escapeHtml(value) {
         return String(value)
@@ -1111,14 +1159,49 @@
         stopBtn.disabled = activeTasks.size === 0;
       }
 
+      function getModeCopy() {
+        if (generationMode === "video") {
+          return {
+            idleTitle: "等待第一段视频",
+            idleDescription: "提交后，视频生成结果会显示在这里并保存到作品。",
+            loadingTitle: "视频正在生成中",
+            loadingDescription: "任务已提交，系统会在后台自动查询结果，完成后保存到作品。",
+            submitText: "生成视频",
+          };
+        }
+        return {
+          idleTitle: "等待第一张图",
+          idleDescription: "登录并提交后，生成结果会显示在这里并保存到作品。",
+          loadingTitle: "图片正在生成中",
+          loadingDescription: "任务已提交，系统会在后台自动查询结果，完成后保存到作品。",
+          submitText: "生成图片",
+        };
+      }
+
+      function updateModeUI() {
+        const copy = getModeCopy();
+        modeButtons.forEach((button) => {
+          const isActive = button.dataset.generationMode === generationMode;
+          button.classList.toggle("is-active", isActive);
+          button.setAttribute("aria-selected", String(isActive));
+        });
+        submitBtn.textContent = copy.submitText;
+        if (!emptyState.classList.contains("hidden")) {
+          resultLoader.classList.add("hidden");
+          emptyTitle.textContent = copy.idleTitle;
+          emptyDescription.textContent = copy.idleDescription;
+        }
+      }
+
       function setResultLoading(isLoading) {
+        const copy = getModeCopy();
         gallery.classList.add("hidden");
         emptyState.classList.remove("hidden");
         resultLoader.classList.toggle("hidden", !isLoading);
-        emptyTitle.textContent = isLoading ? "图片正在生成中" : "等待第一张图";
+        emptyTitle.textContent = isLoading ? copy.loadingTitle : copy.idleTitle;
         emptyDescription.textContent = isLoading
-          ? "任务已提交，系统会在后台自动查询结果，完成后保存到作品。"
-          : "登录并提交后，生成结果会显示在这里并保存到作品。";
+          ? copy.loadingDescription
+          : copy.idleDescription;
       }
 
       function updateActiveStatus(fallbackText = "可以生成", fallbackTone = "done") {
@@ -1277,6 +1360,11 @@
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
         showError("");
+        if (generationMode === "video") {
+          setResultLoading(false);
+          showError("视频生成接口文档待接入，当前已先完成界面切换。");
+          return;
+        }
         if (!currentUser?.isMember) {
           showError("请先登录并等待管理员开通会员。");
           return;
@@ -1338,6 +1426,14 @@
         updateTaskControls();
       });
 
+      modeButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          generationMode = button.dataset.generationMode || "image";
+          showError("");
+          updateModeUI();
+        });
+      });
+
       referenceFilesInput.addEventListener("change", async () => {
         try {
           const files = Array.from(referenceFilesInput.files || []);
@@ -1371,6 +1467,7 @@
 
       refreshWorksBtn.addEventListener("click", refreshWorksNow);
 
+      updateModeUI();
       loadMe();
     </script>
   </body>
