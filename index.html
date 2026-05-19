@@ -874,6 +874,11 @@
         });
         currentUser = data.user;
         updateUserUI();
+        setAuthMessage(
+          mode === "register"
+            ? "注册成功，账号已登录。请联系管理员开通会员后再生成图片。"
+            : "登录成功。",
+        );
         await loadWorks();
       }
 
