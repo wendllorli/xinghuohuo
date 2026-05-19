@@ -237,13 +237,13 @@
         align-items: center;
         gap: 8px;
         min-height: 38px;
-        padding: 8px 14px;
+        padding: 8px 15px;
         border: 1px solid rgba(14, 117, 105, 0.16);
         border-radius: 999px;
-        background: rgba(255, 255, 255, 0.82);
+        background: rgba(255, 255, 255, 0.92);
         color: var(--muted);
         white-space: nowrap;
-        box-shadow: 0 8px 20px rgba(38, 44, 39, 0.06);
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
       }
 
       .top-actions {
@@ -256,9 +256,11 @@
         min-width: min(100%, 420px);
         border: 1px solid rgba(216, 226, 218, 0.96);
         border-radius: 8px;
-        background: rgba(251, 255, 252, 0.96);
+        background:
+          linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(246, 253, 249, 0.92));
         box-shadow: var(--shadow-soft);
-        padding: 18px;
+        padding: 20px;
+        margin-bottom: 22px;
       }
 
       .profile-head {
@@ -273,7 +275,7 @@
         display: flex;
         align-items: center;
         gap: 9px;
-        font-size: 16px;
+        font-size: 17px;
         font-weight: 800;
       }
 
@@ -288,7 +290,7 @@
       .profile-summary {
         display: flex;
         flex-wrap: wrap;
-        gap: 8px;
+        gap: 10px;
       }
 
       .profile-card .actions {
@@ -334,12 +336,16 @@
       .form-panel {
         position: sticky;
         top: 16px;
-        padding: 22px;
+        padding: 24px;
       }
 
       .result-panel {
         min-height: 620px;
         overflow: hidden;
+      }
+
+      .works-panel {
+        margin-top: 22px;
       }
 
       .auth-panel {
@@ -351,9 +357,9 @@
         display: flex;
         align-items: center;
         gap: 9px;
-        margin: 0 0 14px;
-        font-size: 16px;
-        font-weight: 750;
+        margin: 0 0 16px;
+        font-size: 17px;
+        font-weight: 850;
         color: #12181e;
       }
 
@@ -368,16 +374,16 @@
       .mode-switch {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 6px;
-        margin: 0 0 18px;
-        padding: 5px;
+        gap: 8px;
+        margin: 0 0 20px;
+        padding: 6px;
         border: 1px solid rgba(14, 117, 105, 0.14);
         border-radius: 8px;
         background: linear-gradient(135deg, rgba(229, 245, 239, 0.88), rgba(255, 255, 255, 0.74));
       }
 
       .mode-option {
-        min-height: 40px;
+        min-height: 46px;
         border: 1px solid transparent;
         border-radius: 6px;
         background: transparent;
@@ -399,9 +405,9 @@
       }
 
       label {
-        color: #343941;
+        color: #26322f;
         font-size: 13px;
-        font-weight: 700;
+        font-weight: 780;
       }
 
       .hint {
@@ -428,15 +434,15 @@
 
       input,
       select {
-        min-height: 44px;
-        padding: 0 13px;
+        min-height: 48px;
+        padding: 0 14px;
       }
 
       textarea {
         min-height: 154px;
         resize: vertical;
-        padding: 13px;
-        line-height: 1.55;
+        padding: 15px;
+        line-height: 1.65;
       }
 
       input:focus,
@@ -465,24 +471,25 @@
         display: flex;
         align-items: center;
         gap: 10px;
-        min-height: 48px;
-        border: 1px solid var(--line);
+        min-height: 60px;
+        border: 1px dashed rgba(15, 118, 110, 0.26);
         border-radius: 8px;
-        background: var(--panel-strong);
-        padding: 6px;
+        background: linear-gradient(135deg, rgba(229, 245, 239, 0.58), rgba(255, 255, 255, 0.92));
+        padding: 8px;
       }
 
       .upload-button {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        min-height: 36px;
+        min-height: 42px;
         border-radius: 6px;
-        background: var(--accent-soft);
+        background: #ffffff;
         color: var(--accent-strong);
+        box-shadow: 0 8px 18px rgba(15, 118, 110, 0.08);
         cursor: pointer;
         font-weight: 750;
-        padding: 0 13px;
+        padding: 0 15px;
         white-space: nowrap;
       }
 
@@ -530,12 +537,14 @@
 
       .primary {
         flex: 1;
+        min-height: 50px;
         background: linear-gradient(135deg, #0f766e, #047857 52%, #064e3b);
         color: #fff;
         box-shadow: 0 14px 28px rgba(15, 118, 110, 0.24);
       }
 
       .secondary {
+        min-height: 42px;
         border: 1px solid rgba(15, 118, 110, 0.16);
         background: var(--accent-soft);
         color: var(--accent-strong);
@@ -605,10 +614,10 @@
         align-items: center;
         justify-content: space-between;
         gap: 14px;
-        padding: 18px 20px;
+        padding: 20px 22px;
         border-bottom: 1px solid var(--line);
         background:
-          linear-gradient(90deg, rgba(225, 242, 237, 0.72), rgba(255, 255, 255, 0.64));
+          linear-gradient(90deg, rgba(229, 245, 239, 0.82), rgba(255, 255, 255, 0.72));
       }
 
       .task-id {
@@ -622,21 +631,22 @@
 
       .result-body,
       .works-body {
-        padding: 20px;
+        padding: 22px;
       }
 
       .empty,
       .empty-works {
         display: grid;
         place-items: center;
-        min-height: 300px;
+        min-height: 320px;
         border: 1px dashed rgba(14, 117, 105, 0.26);
         border-radius: 8px;
         background:
-          linear-gradient(45deg, rgba(20, 108, 95, 0.045) 25%, transparent 25%),
-          linear-gradient(-45deg, rgba(183, 100, 46, 0.045) 25%, transparent 25%),
+          linear-gradient(45deg, rgba(15, 118, 110, 0.045) 25%, transparent 25%),
+          linear-gradient(-45deg, rgba(132, 204, 22, 0.035) 25%, transparent 25%),
+          linear-gradient(135deg, rgba(255, 255, 255, 0.72), rgba(245, 253, 249, 0.82)),
           var(--panel);
-        background-size: 28px 28px;
+        background-size: 28px 28px, 28px 28px, auto, auto;
         color: var(--muted);
         text-align: center;
         padding: 28px;
@@ -644,9 +654,9 @@
 
       .empty strong {
         display: block;
-        margin-bottom: 8px;
+        margin-bottom: 10px;
         color: var(--ink);
-        font-size: 18px;
+        font-size: 20px;
       }
 
       .loader {
@@ -668,8 +678,8 @@
       .gallery,
       .works-list {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-        gap: 14px;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 16px;
       }
 
       .image-card {
@@ -677,7 +687,7 @@
         border: 1px solid var(--line);
         border-radius: 8px;
         background: #fff;
-        box-shadow: 0 10px 24px rgba(38, 44, 39, 0.08);
+        box-shadow: 0 12px 28px rgba(15, 23, 42, 0.07);
         transition:
           transform 0.16s ease,
           box-shadow 0.16s ease;
@@ -685,7 +695,7 @@
 
       .image-card:hover {
         transform: translateY(-2px);
-        box-shadow: 0 16px 34px rgba(38, 44, 39, 0.12);
+        box-shadow: 0 18px 40px rgba(15, 118, 110, 0.12);
       }
 
       .image-card img {
@@ -708,11 +718,19 @@
       .work-meta {
         display: grid;
         gap: 7px;
-        padding: 10px;
+        padding: 12px;
         border-top: 1px solid var(--line);
       }
 
       .image-actions a {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: max-content;
+        min-height: 30px;
+        border-radius: 999px;
+        background: var(--accent-soft);
+        padding: 0 12px;
         color: var(--accent-strong);
         font-size: 13px;
         font-weight: 750;
@@ -1058,7 +1076,7 @@
         </section>
       </section>
 
-      <section class="panel" style="margin-top: 22px" aria-live="polite">
+      <section class="panel works-panel" aria-live="polite">
         <div class="works-head">
           <h2 class="section-title" style="margin: 0">作品</h2>
           <button id="refreshWorksBtn" class="secondary" type="button">刷新作品</button>
