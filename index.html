@@ -1218,7 +1218,7 @@
       };
       const bananaOptions = {
         model: [{ value: "gemini-3.1-flash-image-preview", label: "Banana2" }],
-        size: ["auto", "1:1", "16:9", "9:16", "21:9", "4:3", "3:4", "3:2", "2:3", "5:4", "4:5"],
+        size: ["1K", "2K", "4K"],
         quality: ["auto"],
       };
 
@@ -1542,7 +1542,7 @@
         qualitySelect.value = generationMode === "video" ? "1080p" : "auto";
         customSizeFields.classList.add("hidden");
         videoFields.classList.toggle("hidden", generationMode !== "video");
-        referenceField.classList.toggle("hidden", generationMode === "banana");
+        referenceField.classList.remove("hidden");
         qualityRow.classList.toggle("hidden", generationMode === "banana");
         nInput.closest(".field").classList.toggle("hidden", generationMode !== "image");
         generationTypeSelect.value = "TEXT";
@@ -1753,8 +1753,16 @@
           size = generationMode === "video" || generationMode === "banana"
             ? String(formData.get("size") || "auto")
             : resolveSize(formData);
-          referenceImages = generationMode === "banana" ? [] : await collectReferenceImages();
-          if (generationMode !== "banana") renderReferencePreview();
+          referenceImages = await collectReferenceImages();
+          renderReferencePreview();
+          if (generationMode === "banana") {
+            if (referenceImages.length === 0) {
+              throw new Error("Banana2 图生图需要先上传参考图。");
+            }
+            if (referenceImages.length > 10) {
+              throw new Error("Banana2 最多支持 10 张参考图。");
+            }
+          }
           if (generationMode === "video") {
             const generationType = String(formData.get("generationType") || "TEXT");
             if (generationType === "TEXT" && referenceImages.length > 0) {
@@ -1790,7 +1798,8 @@
               ? {
                   model: "gemini-3.1-flash-image-preview",
                   prompt,
-                  aspect_ratio: size,
+                  image_size: size,
+                  image_urls: referenceImages,
                 }
             : {
                 model,

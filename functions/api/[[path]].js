@@ -163,11 +163,19 @@ async function createImageTask(request, env) {
     : requestedModel;
   const n = isBanana ? 1 : clampInt(body.n, 1, 4);
   const size = isBanana
-    ? validateBananaAspectRatio(String(body.aspect_ratio || body.size || "auto"))
+    ? validateBananaImageSize(String(body.image_size || "1K"))
     : validateSize(String(body.size || "auto"));
   const quality = isBanana ? "auto" : String(body.quality || "auto");
-  const images = isBanana ? [] : Array.isArray(body.image) ? body.image.filter(Boolean) : [];
+  const images = isBanana
+    ? Array.isArray(body.image_urls)
+      ? body.image_urls.filter(Boolean)
+      : []
+    : Array.isArray(body.image)
+      ? body.image.filter(Boolean)
+      : [];
   if (!prompt) throw httpError(400, "请填写提示词。");
+  if (isBanana && images.length === 0) throw httpError(400, "Banana2 图生图需要参考图。");
+  if (isBanana && images.length > 10) throw httpError(400, "Banana2 最多支持 10 张参考图。");
 
   await ensureQuota(env, membership, n);
 
@@ -175,7 +183,8 @@ async function createImageTask(request, env) {
     ? {
         model,
         prompt,
-        aspect_ratio: size,
+        image_size: size,
+        image_urls: images,
       }
     : {
         model,
@@ -665,10 +674,10 @@ function validateSize(size) {
   return size;
 }
 
-function validateBananaAspectRatio(aspectRatio) {
-  const ratios = new Set(["auto", "1:1", "16:9", "21:9", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16"]);
-  if (ratios.has(aspectRatio)) return aspectRatio;
-  throw httpError(400, "Banana2 宽高比不正确。");
+function validateBananaImageSize(imageSize) {
+  const sizes = new Set(["1K", "2K", "4K"]);
+  if (sizes.has(imageSize)) return imageSize;
+  throw httpError(400, "Banana2 分辨率不正确。");
 }
 
 function validateEnum(value, allowed, message) {
