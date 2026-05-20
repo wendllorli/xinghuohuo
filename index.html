@@ -1218,8 +1218,8 @@
       };
       const bananaOptions = {
         model: [{ value: "gemini-3.1-flash-image-preview", label: "Banana2" }],
-        size: ["1K", "2K", "4K"],
-        quality: ["auto"],
+        size: ["16:9", "9:16", "1:1", "4:3", "3:4"],
+        quality: ["1K", "2K", "4K"],
       };
 
       function escapeHtml(value) {
@@ -1543,7 +1543,7 @@
         customSizeFields.classList.add("hidden");
         videoFields.classList.toggle("hidden", generationMode !== "video");
         referenceField.classList.remove("hidden");
-        qualityRow.classList.toggle("hidden", generationMode === "banana");
+        qualityRow.classList.toggle("hidden", false);
         nInput.closest(".field").classList.toggle("hidden", generationMode !== "image");
         generationTypeSelect.value = "TEXT";
         submitBtn.textContent = copy.submitText;
@@ -1798,7 +1798,8 @@
               ? {
                   model: "gemini-3.1-flash-image-preview",
                   prompt,
-                  image_size: size,
+                  aspect_ratio: size,
+                  image_size: formData.get("quality"),
                   image_urls: referenceImages,
                 }
             : {

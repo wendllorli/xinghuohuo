@@ -165,6 +165,7 @@ async function createImageTask(request, env) {
   const size = isBanana
     ? validateBananaImageSize(String(body.image_size || "1K"))
     : validateSize(String(body.size || "auto"));
+  const bananaAspectRatio = isBanana ? validateBananaAspectRatio(String(body.aspect_ratio || "1:1")) : "";
   const quality = isBanana ? "auto" : String(body.quality || "auto");
   const images = isBanana
     ? Array.isArray(body.image_urls)
@@ -183,6 +184,7 @@ async function createImageTask(request, env) {
     ? {
         model,
         prompt,
+        aspect_ratio: bananaAspectRatio,
         image_size: size,
         image_urls: images,
       }
@@ -678,6 +680,12 @@ function validateBananaImageSize(imageSize) {
   const sizes = new Set(["1K", "2K", "4K"]);
   if (sizes.has(imageSize)) return imageSize;
   throw httpError(400, "Banana2 分辨率不正确。");
+}
+
+function validateBananaAspectRatio(aspectRatio) {
+  const ratios = new Set(["16:9", "9:16", "1:1", "4:3", "3:4"]);
+  if (ratios.has(aspectRatio)) return aspectRatio;
+  throw httpError(400, "Banana2 比例不正确。");
 }
 
 function validateEnum(value, allowed, message) {
