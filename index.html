@@ -422,7 +422,7 @@
 
       .mode-switch {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 8px;
         margin: 0 0 20px;
         padding: 6px;
@@ -997,6 +997,14 @@
             <button
               class="mode-option"
               type="button"
+              data-generation-mode="banana"
+              aria-selected="false"
+            >
+              Banana2
+            </button>
+            <button
+              class="mode-option"
+              type="button"
               data-generation-mode="video"
               aria-selected="false"
             >
@@ -1004,7 +1012,7 @@
             </button>
           </div>
 
-          <div class="field">
+          <div id="referenceField" class="field">
             <label for="prompt">提示词</label>
             <textarea
               id="prompt"
@@ -1033,7 +1041,7 @@
             </div>
           </div>
 
-          <div class="row">
+          <div id="qualityRow" class="row">
             <div class="field">
               <label for="model">模型</label>
               <select id="model" name="model" required>
@@ -1172,6 +1180,7 @@
       const worksList = document.querySelector("#worksList");
       const emptyWorks = document.querySelector("#emptyWorks");
       const refreshWorksBtn = document.querySelector("#refreshWorksBtn");
+      const referenceField = document.querySelector("#referenceField");
       const referenceFilesInput = document.querySelector("#referenceFiles");
       const referenceFileStatus = document.querySelector("#referenceFileStatus");
       const referencePreview = document.querySelector("#referencePreview");
@@ -1179,6 +1188,7 @@
       const sizeSelect = document.querySelector("#size");
       const customSizeFields = document.querySelector("#customSizeFields");
       const qualitySelect = document.querySelector("#quality");
+      const qualityRow = document.querySelector("#qualityRow");
       const nInput = document.querySelector("#n");
       const generationTypeSelect = document.querySelector("#generationType");
       const videoFields = document.querySelector("#videoFields");
@@ -1205,6 +1215,11 @@
         model: [{ value: "veo3.1-fast", label: "VEO3.1 Fast" }],
         size: ["16:9", "9:16"],
         quality: ["720p", "1080p"],
+      };
+      const bananaOptions = {
+        model: [{ value: "gemini-3.1-flash-image-preview", label: "Banana2" }],
+        size: ["auto", "1:1", "16:9", "9:16", "21:9", "4:3", "3:4", "3:2", "2:3", "5:4", "4:5"],
+        quality: ["auto"],
       };
 
       function escapeHtml(value) {
@@ -1480,6 +1495,15 @@
       }
 
       function getModeCopy() {
+        if (generationMode === "banana") {
+          return {
+            idleTitle: "等待 Banana2 作品",
+            idleDescription: "输入提示词并提交后，Banana2 生成结果会显示在这里并保存到作品。",
+            loadingTitle: "Banana2 正在生成中",
+            loadingDescription: "任务已提交，系统会在后台自动查询结果，完成后保存到作品。",
+            submitText: "生成图片",
+          };
+        }
         if (generationMode === "video") {
           return {
             idleTitle: "等待第一段视频",
@@ -1500,7 +1524,12 @@
 
       function updateModeUI() {
         const copy = getModeCopy();
-        const options = generationMode === "video" ? videoOptions : imageOptions;
+        const options =
+          generationMode === "video"
+            ? videoOptions
+            : generationMode === "banana"
+              ? bananaOptions
+              : imageOptions;
         modeButtons.forEach((button) => {
           const isActive = button.dataset.generationMode === generationMode;
           button.classList.toggle("is-active", isActive);
@@ -1513,7 +1542,9 @@
         qualitySelect.value = generationMode === "video" ? "1080p" : "auto";
         customSizeFields.classList.add("hidden");
         videoFields.classList.toggle("hidden", generationMode !== "video");
-        nInput.closest(".field").classList.toggle("hidden", generationMode === "video");
+        referenceField.classList.toggle("hidden", generationMode === "banana");
+        qualityRow.classList.toggle("hidden", generationMode === "banana");
+        nInput.closest(".field").classList.toggle("hidden", generationMode !== "image");
         generationTypeSelect.value = "TEXT";
         submitBtn.textContent = copy.submitText;
         if (!emptyState.classList.contains("hidden")) {
@@ -1719,9 +1750,11 @@
           return;
         }
         try {
-          size = generationMode === "video" ? String(formData.get("size") || "16:9") : resolveSize(formData);
-          referenceImages = await collectReferenceImages();
-          renderReferencePreview();
+          size = generationMode === "video" || generationMode === "banana"
+            ? String(formData.get("size") || "auto")
+            : resolveSize(formData);
+          referenceImages = generationMode === "banana" ? [] : await collectReferenceImages();
+          if (generationMode !== "banana") renderReferencePreview();
           if (generationMode === "video") {
             const generationType = String(formData.get("generationType") || "TEXT");
             if (generationType === "TEXT" && referenceImages.length > 0) {
@@ -1753,6 +1786,12 @@
                 quality: formData.get("quality"),
                 image_urls: referenceImages,
               }
+            : generationMode === "banana"
+              ? {
+                  model: "gemini-3.1-flash-image-preview",
+                  prompt,
+                  aspect_ratio: size,
+                }
             : {
                 model,
                 prompt,

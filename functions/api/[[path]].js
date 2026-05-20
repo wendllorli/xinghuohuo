@@ -156,23 +156,35 @@ async function createImageTask(request, env) {
 
   const body = await readJson(request);
   const prompt = String(body.prompt || "").trim();
-  const model = String(body.model || "gpt-image-2").trim();
-  const n = clampInt(body.n, 1, 4);
-  const size = validateSize(String(body.size || "auto"));
-  const quality = String(body.quality || "auto");
-  const images = Array.isArray(body.image) ? body.image.filter(Boolean) : [];
+  const requestedModel = String(body.model || "gpt-image-2").trim();
+  const isBanana = requestedModel === "gemini-3.1-flash-image-preview";
+  const model = isBanana
+    ? validateEnum(requestedModel, ["gemini-3.1-flash-image-preview"], "暂不支持该 Banana2 模型。")
+    : requestedModel;
+  const n = isBanana ? 1 : clampInt(body.n, 1, 4);
+  const size = isBanana
+    ? validateBananaAspectRatio(String(body.aspect_ratio || body.size || "auto"))
+    : validateSize(String(body.size || "auto"));
+  const quality = isBanana ? "auto" : String(body.quality || "auto");
+  const images = isBanana ? [] : Array.isArray(body.image) ? body.image.filter(Boolean) : [];
   if (!prompt) throw httpError(400, "请填写提示词。");
 
   await ensureQuota(env, membership, n);
 
-  const upstreamPayload = {
-    model,
-    prompt,
-    n,
-    size,
-    quality,
-  };
-  if (images.length > 0) upstreamPayload.image = images;
+  const upstreamPayload = isBanana
+    ? {
+        model,
+        prompt,
+        aspect_ratio: size,
+      }
+    : {
+        model,
+        prompt,
+        n,
+        size,
+        quality,
+      };
+  if (!isBanana && images.length > 0) upstreamPayload.image = images;
 
   const upstream = await fetch(`${API_BASE}/images/generations?async=true`, {
     method: "POST",
@@ -651,6 +663,12 @@ function validateSize(size) {
     throw httpError(400, "自定义尺寸像素预算必须在 655,360 到 8,294,400 之间。");
   }
   return size;
+}
+
+function validateBananaAspectRatio(aspectRatio) {
+  const ratios = new Set(["auto", "1:1", "16:9", "21:9", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16"]);
+  if (ratios.has(aspectRatio)) return aspectRatio;
+  throw httpError(400, "Banana2 宽高比不正确。");
 }
 
 function validateEnum(value, allowed, message) {
