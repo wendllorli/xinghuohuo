@@ -1,6 +1,9 @@
 const API_BASE = "https://duomiapi.com/v1";
 const SESSION_COOKIE = "xh_session";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
+const REFERENCE_IMAGE_TTL_SECONDS = 60 * 60 * 24 * 3;
+const REFERENCE_IMAGE_TTL_MS = REFERENCE_IMAGE_TTL_SECONDS * 1000;
+const REFERENCE_CLEANUP_SCAN_LIMIT = 1000;
 
 export async function onRequest(context) {
   const { request, env } = context;
@@ -275,6 +278,7 @@ async function createVideoTask(request, env) {
 async function uploadReferenceImage(request, env) {
   if (!env.REFERENCE_IMAGES) throw httpError(500, "REFERENCE_IMAGES bucket is not configured");
   const user = await requireUser(request, env);
+  await cleanupExpiredReferenceImages(env);
   const formData = await request.formData();
   const file = formData.get("file");
   if (!(file instanceof File)) throw httpError(400, "请上传图片文件。");
@@ -286,11 +290,12 @@ async function uploadReferenceImage(request, env) {
   await env.REFERENCE_IMAGES.put(key, file.stream(), {
     httpMetadata: {
       contentType: file.type,
-      cacheControl: "public, max-age=31536000, immutable",
+      cacheControl: `public, max-age=${REFERENCE_IMAGE_TTL_SECONDS}`,
     },
     customMetadata: {
       userId: user.id,
       originalName: file.name || "reference-image",
+      expiresAt: new Date(Date.now() + REFERENCE_IMAGE_TTL_MS).toISOString(),
     },
   });
 
@@ -307,7 +312,7 @@ async function getUploadedFile(request, env, encodedKey) {
 
   const headers = new Headers();
   object.writeHttpMetadata(headers);
-  headers.set("Cache-Control", "public, max-age=31536000, immutable");
+  headers.set("Cache-Control", `public, max-age=${REFERENCE_IMAGE_TTL_SECONDS}`);
   headers.set("ETag", object.httpEtag);
   return new Response(object.body, { headers });
 }
@@ -363,7 +368,6 @@ async function getTask(request, env, taskId) {
     await env.DB.prepare("UPDATE image_tasks SET saved_at = ?, state = 'succeeded' WHERE id = ?")
       .bind(now, taskId)
       .run();
-    await cleanupTaskReferenceImages(env, taskId);
   }
 
   return json({ id: taskId, status, images, videos, mediaType: task.media_type || "image" });
@@ -384,22 +388,39 @@ async function recordReferenceImages(env, request, userId, taskId, images, now) 
   }
 }
 
-async function cleanupTaskReferenceImages(env, taskId) {
+async function cleanupExpiredReferenceImages(env) {
   if (!env.REFERENCE_IMAGES) return;
-  const rows = await env.DB.prepare(
-    `SELECT id, object_key AS objectKey
-     FROM task_reference_images
-     WHERE task_id = ? AND deleted_at IS NULL`,
-  )
-    .bind(taskId)
-    .all();
-  const now = nowIso();
-  for (const row of rows.results || []) {
-    await env.REFERENCE_IMAGES.delete(row.objectKey);
-    await env.DB.prepare("UPDATE task_reference_images SET deleted_at = ? WHERE id = ?")
-      .bind(now, row.id)
-      .run();
-  }
+  const cutoff = Date.now() - REFERENCE_IMAGE_TTL_MS;
+  let cursor;
+  let scanned = 0;
+  do {
+    const listed = await env.REFERENCE_IMAGES.list({
+      prefix: "references/",
+      cursor,
+      limit: Math.min(1000, REFERENCE_CLEANUP_SCAN_LIMIT - scanned),
+    });
+    for (const object of listed.objects || []) {
+      scanned += 1;
+      const uploadedAt = object.uploaded
+        ? new Date(object.uploaded).getTime()
+        : referenceTimestampFromKey(object.key);
+      if (uploadedAt && uploadedAt < cutoff) {
+        await env.REFERENCE_IMAGES.delete(object.key);
+        await env.DB.prepare("UPDATE task_reference_images SET deleted_at = ? WHERE object_key = ? AND deleted_at IS NULL")
+          .bind(nowIso(), object.key)
+          .run();
+      }
+      if (scanned >= REFERENCE_CLEANUP_SCAN_LIMIT) return;
+    }
+    cursor = listed.truncated ? listed.cursor : undefined;
+  } while (cursor);
+}
+
+function referenceTimestampFromKey(key) {
+  const match = String(key || "").match(/^references\/[^/]+\/(\d+)-/);
+  if (!match) return 0;
+  const timestamp = Number(match[1]);
+  return Number.isFinite(timestamp) ? timestamp : 0;
 }
 
 function extractReferenceKey(request, value) {
