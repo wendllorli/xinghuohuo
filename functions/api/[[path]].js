@@ -1,4 +1,5 @@
 const API_BASE = "https://duomiapi.com/v1";
+const BANANA_API_URL = "https://duomiapi.com/api/gemini/nano-banana-edit";
 const SESSION_COOKIE = "xh_session";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 const REFERENCE_IMAGE_TTL_SECONDS = 60 * 60 * 24 * 3;
@@ -197,7 +198,7 @@ async function createImageTask(request, env) {
       };
   if (!isBanana && images.length > 0) upstreamPayload.image = images;
 
-  const upstream = await fetch(`${API_BASE}/images/generations?async=true`, {
+  const upstream = await fetch(isBanana ? BANANA_API_URL : `${API_BASE}/images/generations?async=true`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${env.DUOMI_API_KEY}`,
@@ -211,6 +212,30 @@ async function createImageTask(request, env) {
   }
 
   const taskId = data?.id || data?.data?.id || data?.task_id || data?.data?.task_id;
+  const directImages = isBanana ? normalizeImages(data) : [];
+  if (!taskId && directImages.length > 0) {
+    const localTaskId = crypto.randomUUID();
+    const now = nowIso();
+    await env.DB.prepare(
+      `INSERT INTO image_tasks (
+        id, user_id, prompt, model, size, quality, n, state, saved_at, created_at, updated_at, media_type
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, 'succeeded', ?, ?, ?, 'image')`,
+    )
+      .bind(localTaskId, user.id, prompt, model, size, quality, n, now, now, now)
+      .run();
+    await recordReferenceImages(env, request, user.id, localTaskId, images, now);
+    for (const [index, url] of directImages.entries()) {
+      await env.DB.prepare(
+        `INSERT OR IGNORE INTO works (
+          id, user_id, task_id, url, prompt, model, size, quality, created_at, media_type
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'image')`,
+      )
+        .bind(`${localTaskId}-${index}`, user.id, localTaskId, url, prompt, model, size, quality, now)
+        .run();
+    }
+    await consumeQuota(env, user.id, n);
+    return json({ id: localTaskId, images: directImages, mediaType: "image" });
+  }
   if (!taskId) throw httpError(502, "上游接口没有返回任务 ID。");
 
   const now = nowIso();

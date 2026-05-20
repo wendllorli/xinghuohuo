@@ -1819,6 +1819,13 @@
             body: JSON.stringify(payload),
             },
           );
+          if ((result.images || []).length > 0) {
+            renderMedia(result.images, "image");
+            await loadMe();
+            await loadWorks();
+            updateActiveStatus("生成完成，已保存到作品", "done");
+            return;
+          }
           const task = {
             id: result.id,
             mediaType: generationMode === "video" ? "video" : "image",
