@@ -167,13 +167,46 @@
         gap: 12px;
       }
 
-      .user-card {
+      .user-card,
+      .cache-card {
         display: grid;
         gap: 12px;
         border: 1px solid var(--line);
         border-radius: 8px;
         background: #fff;
         padding: 14px;
+      }
+
+      .cache-panel {
+        margin-top: 18px;
+      }
+
+      .cache-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 14px;
+      }
+
+      .cache-list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .cache-key {
+        overflow-wrap: anywhere;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .cache-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        color: var(--muted);
+        font-size: 12px;
       }
 
       .user-head {
@@ -280,6 +313,18 @@
           <div id="empty" class="hint">输入管理员令牌后查询用户。</div>
         </section>
       </section>
+
+      <section class="panel cache-panel">
+        <div class="cache-head">
+          <div>
+            <h2 style="margin: 0">缓存图片</h2>
+            <div class="hint">查看和手动删除 R2 参考图缓存。</div>
+          </div>
+          <button id="refreshCacheBtn" class="secondary" type="button">刷新缓存</button>
+        </div>
+        <div id="cacheList" class="cache-list"></div>
+        <div id="emptyCache" class="hint">暂无缓存图片记录。</div>
+      </section>
     </main>
 
     <script>
@@ -291,6 +336,9 @@
       const message = document.querySelector("#message");
       const usersNode = document.querySelector("#users");
       const emptyNode = document.querySelector("#empty");
+      const refreshCacheBtn = document.querySelector("#refreshCacheBtn");
+      const cacheList = document.querySelector("#cacheList");
+      const emptyCache = document.querySelector("#emptyCache");
 
       tokenInput.value = localStorage.getItem(TOKEN_KEY) || "";
 
@@ -333,6 +381,12 @@
       function formatValue(value) {
         if (value === null || value === undefined || value === "") return "不限";
         return value;
+      }
+
+      function formatTime(value) {
+        if (!value) return "-";
+        const date = new Date(value);
+        return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
       }
 
       function renderUsers(users) {
@@ -424,7 +478,44 @@
         const q = encodeURIComponent(searchInput.value.trim());
         const data = await requestJson(`/api/admin/users?q=${q}`);
         renderUsers(data.users || []);
+        await loadReferenceImages();
         setMessage(`已加载 ${data.users?.length || 0} 个用户。`);
+      }
+
+      async function loadReferenceImages() {
+        const data = await requestJson("/api/admin/reference-images?limit=120");
+        renderReferenceImages(data.images || []);
+      }
+
+      function renderReferenceImages(images) {
+        cacheList.innerHTML = images
+          .map((image) => {
+            const isDeleted = Number(image.activeCount || 0) === 0;
+            const status = isDeleted ? "已删除" : image.isExpired ? "已过期" : "有效";
+            const badgeClass = isDeleted || image.isExpired ? "badge off" : "badge";
+            return `
+              <article class="cache-card" data-object-key="${escapeHtml(image.objectKey)}">
+                <div class="user-head">
+                  <div>
+                    <div class="email">${escapeHtml(image.email || "未知用户")}</div>
+                    <div class="cache-key">${escapeHtml(image.objectKey)}</div>
+                  </div>
+                  <span class="${badgeClass}">${status}</span>
+                </div>
+                <div class="cache-meta">
+                  <span>引用 ${escapeHtml(image.referenceCount || 0)} 次</span>
+                  <span>最后使用 ${escapeHtml(formatTime(image.lastSeenAt))}</span>
+                  <span>过期 ${escapeHtml(formatTime(image.expiresAt))}</span>
+                </div>
+                <div class="actions">
+                  <a class="secondary" href="${escapeHtml(image.url)}" target="_blank" rel="noreferrer" style="display:inline-flex;align-items:center;text-decoration:none">预览</a>
+                  <button class="danger" type="button" data-cache-action="delete" ${isDeleted ? "disabled" : ""}>删除缓存</button>
+                </div>
+              </article>
+            `;
+          })
+          .join("");
+        emptyCache.classList.toggle("hidden", images.length > 0);
       }
 
       async function updateUser(card, isMember) {
@@ -461,8 +552,22 @@
         setMessage(`${email} 已删除。`);
       }
 
+      async function deleteCacheImage(card) {
+        const objectKey = card.dataset.objectKey;
+        const confirmed = window.confirm(`确定删除这张缓存图片吗？\n${objectKey}`);
+        if (!confirmed) return;
+        setMessage("删除缓存中...");
+        await requestJson("/api/admin/reference-images/delete", {
+          method: "POST",
+          body: JSON.stringify({ objectKey }),
+        });
+        await loadReferenceImages();
+        setMessage("缓存图片已删除。");
+      }
+
       saveTokenBtn.addEventListener("click", () => loadUsers().catch((error) => setMessage(error.message)));
       refreshBtn.addEventListener("click", () => loadUsers().catch((error) => setMessage(error.message)));
+      refreshCacheBtn.addEventListener("click", () => loadReferenceImages().catch((error) => setMessage(error.message)));
       searchInput.addEventListener("keydown", (event) => {
         if (event.key === "Enter") {
           loadUsers().catch((error) => setMessage(error.message));
@@ -478,6 +583,13 @@
           return;
         }
         updateUser(card, button.dataset.action === "enable").catch((error) => setMessage(error.message));
+      });
+
+      cacheList.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-cache-action]");
+        if (!button) return;
+        const card = button.closest(".cache-card");
+        deleteCacheImage(card).catch((error) => setMessage(error.message));
       });
 
       if (tokenInput.value) {

@@ -69,6 +69,12 @@ export async function onRequest(context) {
     if (request.method === "POST" && path === "admin/users/delete") {
       return await deleteUser(request, env);
     }
+    if (request.method === "GET" && path === "admin/reference-images") {
+      return await listReferenceImages(request, env);
+    }
+    if (request.method === "POST" && path === "admin/reference-images/delete") {
+      return await deleteReferenceImage(request, env);
+    }
 
     return json({ message: "API not found" }, 404);
   } catch (error) {
@@ -564,6 +570,60 @@ async function deleteUser(request, env) {
     env.DB.prepare("DELETE FROM users WHERE id = ?").bind(user.id),
   ]);
 
+  return json({ ok: true });
+}
+
+async function listReferenceImages(request, env) {
+  requireAdmin(request, env);
+  const url = new URL(request.url);
+  const limit = Math.min(200, Math.max(1, Number.parseInt(url.searchParams.get("limit") || "100", 10)));
+  const rows = await env.DB.prepare(
+    `SELECT
+      tri.object_key AS objectKey,
+      MAX(tri.url) AS url,
+      MIN(tri.created_at) AS firstSeenAt,
+      MAX(tri.created_at) AS lastSeenAt,
+      MIN(tri.deleted_at) AS deletedAt,
+      SUM(CASE WHEN tri.deleted_at IS NULL THEN 1 ELSE 0 END) AS activeCount,
+      COUNT(*) AS referenceCount,
+      users.email AS email
+     FROM task_reference_images tri
+     LEFT JOIN users ON users.id = tri.user_id
+     GROUP BY tri.object_key
+     ORDER BY lastSeenAt DESC
+     LIMIT ?`,
+  )
+    .bind(limit)
+    .all();
+
+  const now = Date.now();
+  const images = (rows.results || []).map((row) => {
+    const uploadedAt = referenceTimestampFromKey(row.objectKey) || new Date(row.firstSeenAt).getTime();
+    const expiresAt = uploadedAt ? new Date(uploadedAt + REFERENCE_IMAGE_TTL_MS).toISOString() : null;
+    return {
+      ...row,
+      deletedAt: row.deletedAt || null,
+      expiresAt,
+      isExpired: Boolean(uploadedAt && uploadedAt + REFERENCE_IMAGE_TTL_MS < now),
+    };
+  });
+  return json({ images });
+}
+
+async function deleteReferenceImage(request, env) {
+  requireAdmin(request, env);
+  const body = await readJson(request);
+  const objectKey = String(body.objectKey || "");
+  if (!objectKey.startsWith("references/")) throw httpError(400, "参考图路径不正确。");
+
+  if (env.REFERENCE_IMAGES) {
+    await env.REFERENCE_IMAGES.delete(objectKey);
+  }
+  await env.DB.prepare(
+    "UPDATE task_reference_images SET deleted_at = ? WHERE object_key = ? AND deleted_at IS NULL",
+  )
+    .bind(nowIso(), objectKey)
+    .run();
   return json({ ok: true });
 }
 
