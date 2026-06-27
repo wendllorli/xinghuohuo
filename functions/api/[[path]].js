@@ -70,6 +70,9 @@ export async function onRequest(context) {
     if (request.method === "POST" && path === "admin/membership") {
       return await updateMembership(request, env);
     }
+    if (request.method === "POST" && path === "admin/users/reset-password") {
+      return await resetUserPassword(request, env);
+    }
     if (request.method === "POST" && path === "admin/users/delete") {
       return await deleteUser(request, env);
     }
@@ -602,6 +605,26 @@ async function updateMembership(request, env) {
       .run();
   }
   return json({ user: await publicUser(env, user.id) });
+}
+
+async function resetUserPassword(request, env) {
+  requireAdmin(request, env);
+  const body = await readJson(request);
+  const email = normalizeEmail(body.email);
+  const password = String(body.password || "");
+  if (!email) throw httpError(400, "请输入用户邮箱。");
+  if (password.length < 8) throw httpError(400, "新密码至少需要 8 位。");
+
+  const user = await env.DB.prepare("SELECT id FROM users WHERE email = ?").bind(email).first();
+  if (!user) throw httpError(404, "用户不存在。");
+
+  const salt = crypto.randomUUID();
+  const passwordHash = await hashPassword(password, salt);
+  await env.DB.prepare("UPDATE users SET password_hash = ?, salt = ?, updated_at = ? WHERE id = ?")
+    .bind(passwordHash, salt, nowIso(), user.id)
+    .run();
+
+  return json({ ok: true });
 }
 
 async function deleteUser(request, env) {

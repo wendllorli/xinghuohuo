@@ -441,6 +441,16 @@
                     <input name="expiresAt" type="datetime-local" value="${toLocalDateTime(user.memberExpiresAt)}" />
                   </div>
                 </div>
+                <div class="row">
+                  <div class="field">
+                    <label>新密码</label>
+                    <input name="newPassword" type="password" minlength="8" autocomplete="new-password" placeholder="至少 8 位" />
+                  </div>
+                  <div class="field">
+                    <label>密码操作</label>
+                    <button class="secondary" type="button" data-action="reset-password">重置密码</button>
+                  </div>
+                </div>
                 <div class="actions">
                   <button class="primary" type="button" data-action="enable">开通/更新</button>
                   <button class="danger" type="button" data-action="disable">关闭会员</button>
@@ -552,6 +562,23 @@
         setMessage(`${email} 已删除。`);
       }
 
+      async function resetPassword(card) {
+        const email = card.dataset.email;
+        const input = card.querySelector('[name="newPassword"]');
+        const password = String(input.value || "");
+        if (password.length < 8) {
+          setMessage("新密码至少需要 8 位。");
+          return;
+        }
+        setMessage("重置密码中...");
+        await requestJson("/api/admin/users/reset-password", {
+          method: "POST",
+          body: JSON.stringify({ email, password }),
+        });
+        input.value = "";
+        setMessage(`${email} 密码已重置。`);
+      }
+
       async function deleteCacheImage(card) {
         const objectKey = card.dataset.objectKey;
         const confirmed = window.confirm(`确定删除这张缓存图片吗？\n${objectKey}`);
@@ -580,6 +607,10 @@
         const card = button.closest(".user-card");
         if (button.dataset.action === "delete") {
           deleteUser(card).catch((error) => setMessage(error.message));
+          return;
+        }
+        if (button.dataset.action === "reset-password") {
+          resetPassword(card).catch((error) => setMessage(error.message));
           return;
         }
         updateUser(card, button.dataset.action === "enable").catch((error) => setMessage(error.message));
