@@ -6,6 +6,8 @@ const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 const REFERENCE_IMAGE_TTL_SECONDS = 60 * 60 * 24 * 3;
 const REFERENCE_IMAGE_TTL_MS = REFERENCE_IMAGE_TTL_SECONDS * 1000;
 const REFERENCE_CLEANUP_SCAN_LIMIT = 1000;
+const WORK_RECORD_TTL_MS = 3 * 24 * 60 * 60 * 1000;
+const WORK_RECORD_CLEANUP_MARKER_KEY = "maintenance/work-record-cleanup-day";
 
 export async function onRequest(context) {
   const { request, env } = context;
@@ -30,6 +32,7 @@ export async function onRequest(context) {
     }
     if (request.method === "GET" && path === "works") {
       const user = await requireUser(request, env);
+      await cleanupExpiredWorkRecordsDaily(env);
       const works = await env.DB.prepare(
         `SELECT id, task_id AS taskId, url, prompt, model, size, quality,
           media_type AS mediaType, created_at AS createdAt
@@ -508,6 +511,37 @@ async function recordReferenceImages(env, request, userId, taskId, images, now) 
       .bind(`${taskId}-${key}`, taskId, userId, key, `${new URL(request.url).origin}/api/files/${encodeURIComponent(key)}`, now)
       .run();
   }
+}
+
+async function cleanupExpiredWorkRecordsDaily(env) {
+  const today = todayKey();
+  if (env.REFERENCE_IMAGES) {
+    const marker = await env.REFERENCE_IMAGES.get(WORK_RECORD_CLEANUP_MARKER_KEY);
+    const lastRun = marker ? String(await marker.text()).trim() : "";
+    if (lastRun === today) return;
+  }
+
+  await cleanupExpiredWorkRecords(env);
+
+  if (env.REFERENCE_IMAGES) {
+    await env.REFERENCE_IMAGES.put(WORK_RECORD_CLEANUP_MARKER_KEY, today);
+  }
+}
+
+async function cleanupExpiredWorkRecords(env) {
+  const cutoff = new Date(Date.now() - WORK_RECORD_TTL_MS).toISOString();
+  await env.DB.batch([
+    env.DB.prepare(
+      `DELETE FROM works
+       WHERE created_at < ?
+         OR task_id IN (SELECT id FROM image_tasks WHERE created_at < ?)`,
+    ).bind(cutoff, cutoff),
+    env.DB.prepare(
+      `DELETE FROM task_reference_images
+       WHERE task_id IN (SELECT id FROM image_tasks WHERE created_at < ?)`,
+    ).bind(cutoff),
+    env.DB.prepare("DELETE FROM image_tasks WHERE created_at < ?").bind(cutoff),
+  ]);
 }
 
 async function cleanupExpiredReferenceImages(env) {
