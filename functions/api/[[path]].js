@@ -1,5 +1,6 @@
 const API_BASE = "https://duomiapi.com/v1";
 const BANANA_API_URL = "https://duomiapi.com/api/gemini/nano-banana-edit";
+const GROK_VIDEO_MODEL = "grok-video-1.5";
 const SESSION_COOKIE = "xh_session";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 const REFERENCE_IMAGE_TTL_SECONDS = 60 * 60 * 24 * 3;
@@ -52,6 +53,9 @@ export async function onRequest(context) {
     }
     if (request.method === "POST" && path === "videos/generations") {
       return await createVideoTask(request, env);
+    }
+    if (request.method === "POST" && path === "grok/videos/generations") {
+      return await createGrokVideoTask(request, env);
     }
     if (request.method === "GET" && path.startsWith("tasks/")) {
       const taskId = decodeURIComponent(path.slice("tasks/".length));
@@ -329,6 +333,62 @@ async function createVideoTask(request, env) {
   return json({ id: taskId, mediaType: "video" });
 }
 
+async function createGrokVideoTask(request, env) {
+  if (!env.DUOMI_API_KEY) throw httpError(500, "DUOMI_API_KEY is not configured");
+  const user = await requireUser(request, env);
+  const membership = await publicUser(env, user.id);
+  if (!membership.isMember) throw httpError(403, "会员未开通，请联系管理员。");
+
+  const body = await readJson(request);
+  const prompt = String(body.prompt || "").trim();
+  const model = validateEnum(String(body.model || GROK_VIDEO_MODEL), [GROK_VIDEO_MODEL], "暂不支持该 Grok 视频模型。");
+  const aspectRatio = validateEnum(String(body.aspect_ratio || "16:9"), ["1:1", "16:9", "2:3", "3:2", "9:16"], "Grok 视频比例不正确。");
+  const quality = validateEnum(String(body.quality || "720p"), ["720p"], "Grok 视频仅支持 720p。");
+  const duration = validateGrokVideoDuration(body.duration);
+  const imageUrls = validateGrokVideoImages(body.image_urls);
+  if (!prompt) throw httpError(400, "请填写提示词。");
+
+  await ensureVideoQuota(env, membership);
+
+  const upstreamPayload = {
+    model,
+    prompt,
+    aspect_ratio: aspectRatio,
+    duration,
+    quality,
+  };
+  if (imageUrls.length > 0) upstreamPayload.image_urls = imageUrls;
+
+  const upstream = await fetch(`${API_BASE}/videos/generations`, {
+    method: "POST",
+    headers: {
+      Authorization: env.DUOMI_API_KEY,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(upstreamPayload),
+  });
+  const data = await parseJson(upstream);
+  if (!upstream.ok) {
+    throw httpError(upstream.status, data?.error?.message || data?.message || "Grok 视频任务创建失败。");
+  }
+
+  const taskId = data?.id || data?.data?.id || data?.task_id || data?.data?.task_id;
+  if (!taskId) throw httpError(502, "上游接口没有返回任务 ID。");
+
+  const now = nowIso();
+  await env.DB.prepare(
+    `INSERT INTO image_tasks (
+      id, user_id, prompt, model, size, quality, n, state, created_at, updated_at, media_type
+    ) VALUES (?, ?, ?, ?, ?, ?, 1, 'submitted', ?, ?, 'video')`,
+  )
+    .bind(taskId, user.id, prompt, model, aspectRatio, quality, now, now)
+    .run();
+  await recordReferenceImages(env, request, user.id, taskId, imageUrls, now);
+  await consumeVideoQuota(env, user.id);
+
+  return json({ id: taskId, mediaType: "video" });
+}
+
 async function uploadReferenceImage(request, env) {
   if (!env.REFERENCE_IMAGES) throw httpError(500, "REFERENCE_IMAGES bucket is not configured");
   const user = await requireUser(request, env);
@@ -379,9 +439,13 @@ async function getTask(request, env, taskId) {
     .first();
   if (!task) throw httpError(404, "任务不存在。");
 
-  const upstream = await fetch(`${API_BASE}/tasks/${encodeURIComponent(taskId)}`, {
+  const isGrokVideoTask = task.media_type === "video" && task.model === GROK_VIDEO_MODEL;
+  const upstreamUrl = isGrokVideoTask
+    ? `${API_BASE}/videos/tasks/${encodeURIComponent(taskId)}`
+    : `${API_BASE}/tasks/${encodeURIComponent(taskId)}`;
+  const upstream = await fetch(upstreamUrl, {
     headers: {
-      Authorization: `Bearer ${env.DUOMI_API_KEY}`,
+      Authorization: isGrokVideoTask ? env.DUOMI_API_KEY : `Bearer ${env.DUOMI_API_KEY}`,
     },
   });
   const data = await parseJson(upstream);
@@ -390,6 +454,7 @@ async function getTask(request, env, taskId) {
   }
 
   const status = normalizeStatus(data);
+  const message = data?.error?.message || data?.message || "";
   const images = normalizeImages(data);
   const videos = normalizeVideos(data);
   const assets = task.media_type === "video" ? videos : images;
@@ -424,7 +489,7 @@ async function getTask(request, env, taskId) {
       .run();
   }
 
-  return json({ id: taskId, status, images, videos, mediaType: task.media_type || "image" });
+  return json({ id: taskId, status, message, images, videos, mediaType: task.media_type || "image" });
 }
 
 async function recordReferenceImages(env, request, userId, taskId, images, now) {
@@ -776,6 +841,20 @@ function validateBananaAspectRatio(aspectRatio) {
 function validateEnum(value, allowed, message) {
   if (allowed.includes(value)) return value;
   throw httpError(400, message);
+}
+
+function validateGrokVideoDuration(value) {
+  const duration = value === undefined || value === null || value === "" ? 15 : Number(value);
+  if ([15, 20, 25, 30].includes(duration)) return duration;
+  throw httpError(400, "Grok 视频时长仅支持 15S、20S、25S、30S。");
+}
+
+function validateGrokVideoImages(value) {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value)) throw httpError(400, "Grok 参考图必须使用数组格式。");
+  const images = value.filter(Boolean);
+  if (images.length > 1) throw httpError(400, "Grok Video 1.5 最多支持 1 张参考图。");
+  return images;
 }
 
 function normalizeStatus(payload) {

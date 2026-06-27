@@ -1010,6 +1010,14 @@
             >
               视频生成
             </button>
+            <button
+              class="mode-option"
+              type="button"
+              data-generation-mode="grok-video"
+              aria-selected="false"
+            >
+              Grok 视频
+            </button>
           </div>
 
           <div id="referenceField" class="field">
@@ -1093,6 +1101,22 @@
             <div class="field">
               <label>时长</label>
               <div class="readonly-field">8S</div>
+            </div>
+          </div>
+
+          <div id="grokVideoFields" class="row hidden">
+            <div class="field">
+              <label for="grokDuration">时长</label>
+              <select id="grokDuration" name="grokDuration">
+                <option value="15" selected>15S</option>
+                <option value="20">20S</option>
+                <option value="25">25S</option>
+                <option value="30">30S</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>参考图</label>
+              <div class="readonly-field">最多 1 张</div>
             </div>
           </div>
 
@@ -1192,6 +1216,8 @@
       const nInput = document.querySelector("#n");
       const generationTypeSelect = document.querySelector("#generationType");
       const videoFields = document.querySelector("#videoFields");
+      const grokVideoFields = document.querySelector("#grokVideoFields");
+      const grokDurationSelect = document.querySelector("#grokDuration");
 
       const activeTasks = new Map();
       let currentUser = null;
@@ -1215,6 +1241,11 @@
         model: [{ value: "veo3.1-fast", label: "VEO3.1 Fast" }],
         size: ["16:9", "9:16"],
         quality: ["720p", "1080p"],
+      };
+      const grokVideoOptions = {
+        model: [{ value: "grok-video-1.5", label: "Grok Video 1.5" }],
+        size: ["16:9", "9:16", "1:1", "2:3", "3:2"],
+        quality: ["720p"],
       };
       const bananaOptions = {
         model: [{ value: "gemini-3.1-flash-image-preview", label: "Banana2" }],
@@ -1513,6 +1544,15 @@
             submitText: "生成视频",
           };
         }
+        if (generationMode === "grok-video") {
+          return {
+            idleTitle: "等待 Grok 视频",
+            idleDescription: "提交后，Grok 视频结果会显示在这里并保存到作品。",
+            loadingTitle: "Grok 视频正在生成中",
+            loadingDescription: "任务已提交，系统会在后台自动查询结果，完成后保存到作品。",
+            submitText: "生成 Grok 视频",
+          };
+        }
         return {
           idleTitle: "等待第一张图",
           idleDescription: "登录并提交后，生成结果会显示在这里并保存到作品。",
@@ -1524,9 +1564,14 @@
 
       function updateModeUI() {
         const copy = getModeCopy();
+        const isVeoVideo = generationMode === "video";
+        const isGrokVideo = generationMode === "grok-video";
+        const isVideoLike = isVeoVideo || isGrokVideo;
         const options =
-          generationMode === "video"
+          isVeoVideo
             ? videoOptions
+            : isGrokVideo
+              ? grokVideoOptions
             : generationMode === "banana"
               ? bananaOptions
               : imageOptions;
@@ -1538,14 +1583,16 @@
         setSelectOptions(modelSelect, options.model);
         setSelectOptions(sizeSelect, options.size);
         setSelectOptions(qualitySelect, options.quality);
-        sizeSelect.value = generationMode === "video" ? "16:9" : "auto";
-        qualitySelect.value = generationMode === "video" ? "1080p" : "auto";
+        sizeSelect.value = isVideoLike ? "16:9" : "auto";
+        qualitySelect.value = isGrokVideo ? "720p" : isVeoVideo ? "1080p" : "auto";
         customSizeFields.classList.add("hidden");
-        videoFields.classList.toggle("hidden", generationMode !== "video");
+        videoFields.classList.toggle("hidden", !isVeoVideo);
+        grokVideoFields.classList.toggle("hidden", !isGrokVideo);
         referenceField.classList.remove("hidden");
         qualityRow.classList.toggle("hidden", false);
         nInput.closest(".field").classList.toggle("hidden", generationMode !== "image");
         generationTypeSelect.value = "TEXT";
+        grokDurationSelect.value = "15";
         submitBtn.textContent = copy.submitText;
         if (!emptyState.classList.contains("hidden")) {
           resultLoader.classList.add("hidden");
@@ -1750,7 +1797,7 @@
           return;
         }
         try {
-          size = generationMode === "video" || generationMode === "banana"
+          size = generationMode === "video" || generationMode === "grok-video" || generationMode === "banana"
             ? String(formData.get("size") || "auto")
             : resolveSize(formData);
           referenceImages = await collectReferenceImages();
@@ -1775,6 +1822,9 @@
               throw new Error("REFERENCE 模式暂不支持 9:16。");
             }
           }
+          if (generationMode === "grok-video" && referenceImages.length > 1) {
+            throw new Error("Grok Video 1.5 最多支持 1 张参考图。");
+          }
         } catch (error) {
           showError(error.message);
           return;
@@ -1784,7 +1834,16 @@
         taskIdNode.textContent = "正在创建任务...";
         setResultLoading(true);
         const payload =
-          generationMode === "video"
+          generationMode === "grok-video"
+            ? {
+                model: "grok-video-1.5",
+                prompt,
+                aspect_ratio: size,
+                duration: Number(formData.get("grokDuration") || 15),
+                quality: "720p",
+                image_urls: referenceImages,
+              }
+            : generationMode === "video"
             ? {
                 model,
                 prompt,
@@ -1812,8 +1871,14 @@
               };
 
         try {
+          const endpoint =
+            generationMode === "grok-video"
+              ? "/api/grok/videos/generations"
+              : generationMode === "video"
+                ? "/api/videos/generations"
+                : "/api/images/generations";
           const result = await requestJson(
-            generationMode === "video" ? "/api/videos/generations" : "/api/images/generations",
+            endpoint,
             {
             method: "POST",
             body: JSON.stringify(payload),
@@ -1828,7 +1893,7 @@
           }
           const task = {
             id: result.id,
-            mediaType: generationMode === "video" ? "video" : "image",
+            mediaType: generationMode === "video" || generationMode === "grok-video" ? "video" : "image",
             pollCount: 0,
             timer: null,
           };
