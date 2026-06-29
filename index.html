@@ -1108,10 +1108,9 @@
             <div class="field">
               <label for="grokDuration">时长</label>
               <select id="grokDuration" name="grokDuration">
-                <option value="15" selected>15S</option>
-                <option value="20">20S</option>
-                <option value="25">25S</option>
-                <option value="30">30S</option>
+                <option value="6" selected>6S</option>
+                <option value="10">10S</option>
+                <option value="15">15S</option>
               </select>
             </div>
             <div class="field">
@@ -1592,7 +1591,7 @@
         qualityRow.classList.toggle("hidden", false);
         nInput.closest(".field").classList.toggle("hidden", generationMode !== "image");
         generationTypeSelect.value = "TEXT";
-        grokDurationSelect.value = "15";
+        grokDurationSelect.value = "6";
         submitBtn.textContent = copy.submitText;
         if (!emptyState.classList.contains("hidden")) {
           resultLoader.classList.add("hidden");
@@ -1839,7 +1838,7 @@
                 model: "grok-video-1.5",
                 prompt,
                 aspect_ratio: size,
-                duration: Number(formData.get("grokDuration") || 15),
+                duration: Number(formData.get("grokDuration") || 6),
                 quality: "720p",
                 image_urls: referenceImages,
               }

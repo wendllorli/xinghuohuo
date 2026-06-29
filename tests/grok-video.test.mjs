@@ -89,7 +89,7 @@ test("creates a Grok video task through the dedicated endpoint", async () => {
       model: "grok-video-1.5",
       prompt: "cinematic product reveal",
       aspect_ratio: "2:3",
-      duration: 20,
+      duration: 10,
       quality: "720p",
       image_urls: ["https://example.com/ref.png"],
     }),
@@ -106,7 +106,7 @@ test("creates a Grok video task through the dedicated endpoint", async () => {
     model: "grok-video-1.5",
     prompt: "cinematic product reveal",
     aspect_ratio: "2:3",
-    duration: 20,
+    duration: 10,
     quality: "720p",
     image_urls: ["https://example.com/ref.png"],
   });
@@ -152,7 +152,7 @@ test("rejects invalid Grok request parameters before calling upstream", async ()
     },
     {
       name: "invalid duration",
-      body: { aspect_ratio: "16:9", duration: 10, quality: "720p", image_urls: [] },
+      body: { aspect_ratio: "16:9", duration: 20, quality: "720p", image_urls: [] },
       message: /时长/,
     },
     {

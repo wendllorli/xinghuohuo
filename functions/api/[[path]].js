@@ -901,9 +901,9 @@ function validateEnum(value, allowed, message) {
 }
 
 function validateGrokVideoDuration(value) {
-  const duration = value === undefined || value === null || value === "" ? 15 : Number(value);
-  if ([15, 20, 25, 30].includes(duration)) return duration;
-  throw httpError(400, "Grok 视频时长仅支持 15S、20S、25S、30S。");
+  const duration = value === undefined || value === null || value === "" ? 6 : Number(value);
+  if ([6, 10, 15].includes(duration)) return duration;
+  throw httpError(400, "Grok 视频时长仅支持 6S、10S、15S。");
 }
 
 function validateGrokVideoImages(value) {
